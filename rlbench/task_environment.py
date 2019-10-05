@@ -15,9 +15,18 @@ from rlbench.backend.task import Task
 from rlbench.demo import Demo
 from rlbench.observation_config import ObservationConfig
 
+_TORQUE_MAX_VEL = 9999
 _DT = 0.05
 _MAX_RESET_ATTEMPTS = 40
 _MAX_DEMO_ATTEMPTS = 10
+
+
+class InvalidActionError(Exception):
+    pass
+
+
+class TaskEnvironmentError(Exception):
+    pass
 
 
 class TaskEnvironment(object):
@@ -78,7 +87,7 @@ class TaskEnvironment(object):
             place_demo = demo != None and hasattr(demo, 'num_reset_attempts') and demo.num_reset_attempts != None
             desc = self._scene.init_episode(
                 self._variation_number, max_attempts=_MAX_RESET_ATTEMPTS,
-                randomly_place=not self._static_positions, place_demo=place_demo)
+                randomly_place=not self._static_positions)
         except (BoundaryError, WaypointError) as e:
             raise TaskEnvironmentError(
                 'Could not place the task %s in the scene. This should not '

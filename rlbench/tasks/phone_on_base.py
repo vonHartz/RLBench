@@ -32,8 +32,5 @@ class PhoneOnBase(Task):
 
     def get_low_dim_state(self) -> np.ndarray:
         # return ground truth phone pose for ground truth keypoints
-        return np.array([self.phone.get_pose(),
-                         self.phone_case.get_pose(),
-                         # self.phone.get_bounding_box(),
-                         # self.phone_case.get_bounding_box()
-                         ])
+        return np.array([self.phone_case.get_pose(),
+                         self.phone.get_pose()])

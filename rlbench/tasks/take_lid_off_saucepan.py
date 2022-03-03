@@ -1,4 +1,6 @@
 from typing import List
+import numpy as np
+
 from pyrep.objects.shape import Shape
 from pyrep.objects.proximity_sensor import ProximitySensor
 from rlbench.backend.task import Task
@@ -28,3 +30,9 @@ class TakeLidOffSaucepan(Task):
 
     def variation_count(self) -> int:
         return 1
+
+    def get_low_dim_state(self) -> np.ndarray:
+        # return ground truth lid pose for ground truth keypoints
+        # as we train this task in single-object mode, we only need the lid's
+        # position, not the pot's
+        return np.array([self.lid.get_pose()])

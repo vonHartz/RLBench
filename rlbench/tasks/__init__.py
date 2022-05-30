@@ -102,6 +102,7 @@ from rlbench.tasks.wipe_desk import WipeDesk
 
 from rlbench.tasks.arm_scan import ArmScan
 from rlbench.tasks.phone_base import PhoneBase
+from rlbench.tasks.phone_receiver import PhoneReceiver
 
 
 FS10_V1 = {

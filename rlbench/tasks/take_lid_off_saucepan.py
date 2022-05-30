@@ -36,3 +36,4 @@ class TakeLidOffSaucepan(Task):
         # as we train this task in single-object mode, we only need the lid's
         # position, not the pot's
         return np.array([self.lid.get_pose()])
+        # TODO: add pot, recollect data!

@@ -101,6 +101,7 @@ from rlbench.tasks.weighing_scales import WeighingScales
 from rlbench.tasks.wipe_desk import WipeDesk
 
 from rlbench.tasks.arm_scan import ArmScan
+from rlbench.tasks.phone_base import PhoneBase
 
 
 FS10_V1 = {

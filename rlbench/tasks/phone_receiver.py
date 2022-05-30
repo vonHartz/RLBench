@@ -25,5 +25,3 @@ class PhoneReceiver(Task):
     def get_low_dim_state(self) -> np.ndarray:
         # return ground truth phone pose for ground truth keypoints
         return np.array([self.phone.get_pose()])
-
-                         self.phone.get_pose()])

@@ -93,6 +93,7 @@ class Task(object):
 
         state = []
         for obj, objtype in self._initial_objs_in_scene:
+            # print(obj._handle, objtype)
             if not obj.still_exists():
                 # It has been deleted
                 empty_len = 7

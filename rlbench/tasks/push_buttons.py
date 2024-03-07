@@ -165,3 +165,9 @@ class PushButtons(Task):
     def _repeat(self):
         self.buttons_pushed += 1
         return self.buttons_pushed < self.buttons_to_push
+
+    def get_low_dim_state(self) -> np.ndarray:
+        shapes = self.target_buttons
+        states = [s.get_pose() for s in shapes]
+        return np.concatenate(states)
+

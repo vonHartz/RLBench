@@ -72,3 +72,9 @@ class PlaceCups(Task):
 
     def base_rotation_bounds(self) -> Tuple[List[float], List[float]]:
         return [0.0, 0.0, -np.pi / 2], [0.0, 0.0, np.pi / 2]
+
+    def get_low_dim_state(self) -> np.ndarray:
+        shapes = self._cups + self._spokes
+        states = [s.get_pose() for s in shapes]
+        return np.concatenate(states)
+

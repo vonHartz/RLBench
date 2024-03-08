@@ -98,3 +98,9 @@ class StackBlocks(Task):
     def _repeat(self):
         self.blocks_stacked += 1
         return self.blocks_stacked < self.blocks_to_stack
+
+    def get_low_dim_state(self) -> np.ndarray:
+        shapes = self.target_blocks + self.distractors
+        states = [s.get_pose() for s in shapes]
+        return np.concatenate(states)
+

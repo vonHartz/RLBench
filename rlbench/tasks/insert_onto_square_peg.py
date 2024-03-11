@@ -48,7 +48,7 @@ class InsertOntoSquarePeg(Task):
         return len(colors)
     
     def get_low_dim_state(self) -> np.ndarray:
-        shapes = [self._square_ring, self.spokes[0]]
+        shapes = [self._square_ring, self._success_centre]
         states = [s.get_pose() for s in shapes]
         return np.concatenate(states)
 

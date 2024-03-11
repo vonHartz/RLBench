@@ -57,7 +57,7 @@ class PlaceShapeInShapeSorter(Task):
         self.waypoint4.set_pose(dp.get_pose())
 
     def get_low_dim_state(self) -> np.ndarray:
-        shapes = self.shapes + [self.shape_sorter]
+        shapes = [self.waypoint1, self.waypoint4]
         states = [s.get_pose() for s in shapes]
         return np.concatenate(states)
 

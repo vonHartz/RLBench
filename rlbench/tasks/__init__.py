@@ -111,6 +111,8 @@ from rlbench.tasks.water_plants import WaterPlants
 from rlbench.tasks.weighing_scales import WeighingScales
 from rlbench.tasks.wipe_desk import WipeDesk
 
+from rlbench.tasks.place_cups_m_m import PlaceCupsMM
+
 FS10_V1 = {
     'train': [
         ReachTarget,

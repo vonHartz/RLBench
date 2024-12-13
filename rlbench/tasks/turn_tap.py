@@ -40,6 +40,6 @@ class TurnTap(Task):
         return 2
 
     def get_low_dim_state(self) -> np.ndarray:
-        shapes = [Joint('left_joint')]
+        shapes = [self.left_joint]
         states = [s.get_pose() for s in shapes]
         return np.concatenate(states)

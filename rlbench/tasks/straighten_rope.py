@@ -11,9 +11,11 @@ class StraightenRope(Task):
     def init_task(self) -> None:
         self._head = Shape('head')
         self._tail = Shape('tail')
+        self._success_head = ProximitySensor('success_head')
+        self._success_tail = ProximitySensor('success_tail')
         self.register_success_conditions(
-            [DetectedCondition(self._head, ProximitySensor('success_head')),
-             DetectedCondition(self._tail, ProximitySensor('success_tail'))])
+            [DetectedCondition(self._head, self._success_head),
+             DetectedCondition(self._tail, self._success_tail)])
 
     def init_episode(self, index: int) -> List[str]:
         return ['straighten rope',
@@ -28,6 +30,6 @@ class StraightenRope(Task):
         return 1
     
     def get_low_dim_state(self) -> np.ndarray:
-        shapes = [self._head, self._tail]
+        shapes = [self._head, self._tail, self._success_head, self._success_tail]
         states = [s.get_pose() for s in shapes]
         return np.concatenate(states)

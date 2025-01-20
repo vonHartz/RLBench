@@ -112,6 +112,7 @@ from rlbench.tasks.weighing_scales import WeighingScales
 from rlbench.tasks.wipe_desk import WipeDesk
 
 from rlbench.tasks.place_cups_m_m import PlaceCupsMM
+from rlbench.tasks.turn_tap_m_m import TurnTapMM
 
 FS10_V1 = {
     'train': [

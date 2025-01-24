@@ -4,7 +4,7 @@ import numpy as np
 from pyrep.objects.dummy import Dummy
 from pyrep.objects.joint import Joint
 from rlbench.backend.task import Task
-from rlbench.backend.conditions import JointCondition
+from rlbench.backend.conditions import JointCondition, OrConditions
 
 OPTIONS = ['left', 'right']
 
@@ -26,11 +26,13 @@ class TurnTapMM(Task):
             self.left_start.set_orientation(self.right_start.get_orientation())
             self.left_end.set_position(self.right_end.get_position())
             self.left_end.set_orientation(self.right_end.get_orientation())
-            self.register_success_conditions(
-                [JointCondition(self.right_joint, 1.57)])
-        else:
-            self.register_success_conditions(
-                [JointCondition(self.left_joint, 1.57)])
+
+        joint_conditions = [
+            JointCondition(self.right_joint, 1.57),
+            JointCondition(self.left_joint, 1.57)]
+        self.register_success_conditions(
+            [OrConditions(joint_conditions)]
+        )
 
         return ['turn %s tap' % option,
                 'rotate the %s tap' % option,

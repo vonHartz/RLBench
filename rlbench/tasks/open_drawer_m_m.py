@@ -2,7 +2,7 @@ from typing import List, Tuple
 import numpy as np
 from pyrep.objects.dummy import Dummy
 from pyrep.objects.joint import Joint
-from rlbench.backend.conditions import JointCondition
+from rlbench.backend.conditions import JointCondition, OrConditions
 from rlbench.backend.task import Task
 
 
@@ -21,8 +21,10 @@ class OpenDrawerMM(Task):
         self._current_index = index
         option = self._options[index]
         self._waypoint1.set_position(self._anchors[index].get_position())
+        joint_conditions = [JointCondition(self._joints[i], 0.15) for i in range(3)]
         self.register_success_conditions(
-            [JointCondition(self._joints[index], 0.15)])
+            [OrConditions(joint_conditions)]
+        )
         return ['open %s drawer' % option,
                 'grip the %s handle and pull the %s drawer open' % (
                     option, option),

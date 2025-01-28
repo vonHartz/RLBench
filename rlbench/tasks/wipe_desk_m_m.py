@@ -26,65 +26,57 @@ class WipeDeskMM(Task):
 
     def init_episode(self, index: int) -> List[str]:
         mode = np.random.randint(0, 2)
-        if False and mode == 1:
+        if True or mode == 1:
             wp2 = Dummy('waypoint2')
             wp4 = Dummy('waypoint4')
-            # pose2 = wp2.get_position()
-            # pose4 = wp4.get_position()
-            # wp2.set_position(pose4)
-            # wp4.set_position(pose2)
-            # get the trajectory called waypoint3
+            pose2 = wp2.get_position()
+            pose4 = wp4.get_position()
+            wp2.set_position(pose4)
+            wp4.set_position(pose2)
             wp3 = CartesianPath('waypoint3')
-            print(dir(wp3))
 
-            print("handle ", wp3._handle)
-            print("pose ", wp3.get_pose())
-            print("parent ", wp3.get_parent())
+            reversed_path = CartesianPath.create(path_color=[0, 0, 1])
+            reversed_path.set_parent(wp3.get_parent())
+            # reversed_path.set_pose(wp3.get_pose())
+            reversed_path.set_name('waypoint3overwrite')
 
-            wp3.rotate([0, 0, np.pi])
-            wp2.rotate([0, 0, np.pi])
-            wp4.rotate([0, 0, np.pi])
+            num_samples = 30
+            sampled_poses = []
+            for i in range(num_samples + 1):
+                rel_dist = i / num_samples
+                pos, ori = wp3.get_pose_on_path(rel_dist)
+                ori[0] = ori[0] + 2 * np.pi
+                sampled_poses.append(pos + ori)
 
-            # raise KeyboardInterrupt
+            reversed_poses = sampled_poses[::-1]
 
-            # from pyrep.backend import sim
-            # path_handle = wp3.get_handle()
-            # control_points = []
-            # ctrl_point_count = sim.simGetPathPlanningHandle(path_handle)
+            print("================================")
+            po_2 = list(wp2.get_position()) + list(wp2.get_orientation())
+            po_4 = list(wp4.get_position()) + list(wp4.get_orientation())
+            print(po_2)
+            print(po_4)
+            print(sampled_poses)
+            print(reversed_poses)
 
-            # for i in range(ctrl_point_count):
-            #     pos, quat = sim.simGetPathPoint(path_handle, i)  # Position and orientation as quaternion
-            #     control_points.append((pos, quat))
+            # wp3.cut_control_points(0, -1)
+            # wp3.insert_control_points(sampled_poses)
 
-            # # Step 2: Reverse the control points
-            # reversed_control_points = control_points[::-1]
-
-            # # Step 3: Clear the existing control points
-            # sim.simClearPath(path_handle)
-
-            # # Step 4: Insert the reversed control points
-            # for pos, quat in reversed_control_points:
-            #     sim.simInsertPathPoint(path_handle, pos, quat)
-
-            #     num_samples = 100  # Number of samples along the path
-            #     sampled_poses = []
-            #     for i in range(num_samples + 1):
-            #         rel_dist = i / num_samples
-            #         pos, ori = wp3.get_pose_on_path(rel_dist)
-            #         sampled_poses.append(pos + ori)  # Combine position and orientation
-
-            # # Step 2: Reverse the poses
-            # reversed_poses = sampled_poses[::-1]
-
-            # # Step 3: Create a new CartesianPath with reversed poses
-            # reversed_path = CartesianPath.create(name='waypoint3')
+            reversed_path.insert_control_points(sampled_poses)
             # reversed_path.insert_control_points(reversed_poses)
-            # wp3.set_name('old_waypoint3')
-            # reversed_path.set_name('waypoint3')
+            # reversed_path.insert_control_points(
+            #     [po_2, po_4]
+            # )
+
+            p3 = wp3.get_pose()
+            # reversed_path.set_pose(p3)
+            # wp3.remove()
+            # wp3.set_name('oldwaypoint3')
+            self.reversed_path = reversed_path
+            # wp3.remove()
+            # wp3._handle, reversed_path._handle = reversed_path._handle, wp3._handle
 
             
         self._place_dirt()
-        self.get_base().rotate([0, 0, np.pi/2])
         self.register_success_conditions([EmptyCondition(self.dirt_spots)])
         return ['wipe dirt off the desk',
                 'use the sponge to clean up the desk',
@@ -107,6 +99,7 @@ class WipeDeskMM(Task):
         for d in self.dirt_spots:
             d.remove()
         self.dirt_spots = []
+        self.reversed_path.remove()
 
     def _place_dirt(self):
         for i in range(DIRT_POINTS):

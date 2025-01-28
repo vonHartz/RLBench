@@ -379,6 +379,10 @@ class Task(object):
             if not Object.exists(name) or i == self._stop_at_waypoint_index:
                 # There are no more waypoints...
                 break
+            # HACK
+            overwrite_name = name + 'overwrite'
+            if Object.exists(overwrite_name):
+                name = overwrite_name
             ob_type = Object.get_object_type(name)
             way = None
             if ob_type == ObjectType.DUMMY:

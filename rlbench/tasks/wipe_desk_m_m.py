@@ -26,7 +26,7 @@ class WipeDeskMM(Task):
 
     def init_episode(self, index: int) -> List[str]:
         mode = np.random.randint(0, 2)
-        if True or mode == 1:
+        if mode == 1:
             wp2 = Dummy('waypoint2')
             wp4 = Dummy('waypoint4')
             pose2 = wp2.get_position()
@@ -35,63 +35,23 @@ class WipeDeskMM(Task):
             wp4.set_position(pose2)
             wp3 = CartesianPath('waypoint3')
 
-            reversed_path = CartesianPath.create(path_color=[0, 0, 1])
+            reversed_path = CartesianPath.create(path_color=[0, 0, 1], automatic_orientation=False)
             reversed_path.set_name('waypoint3overwrite')
             reversed_path.set_parent(wp3.get_parent())
-            print("parents ", wp3.get_parent()._handle, reversed_path.get_parent()._handle)
-            print("parents ", wp3.get_parent().get_pose(), reversed_path.get_parent().get_pose())
-
-            parent = wp3.get_parent()
-            # reversed_path.set_pose(wp3.get_pose(relative_to=parent), relative_to=parent)
-
             reversed_path.set_orientation(wp3.get_orientation())
-
-            print("================================")
-            po_2 = list(wp2.get_position()) + list(wp2.get_orientation())
-            po_3 = list(wp3.get_position()) + list(wp3.get_orientation())
-            po_4 = list(wp4.get_position()) + list(wp4.get_orientation())
-            sp = list(self.sponge.get_position()) + list(self.sponge.get_orientation())
-            wp1 = Dummy('waypoint1')
-            po_1 = list(wp1.get_position()) + list(wp1.get_orientation())
-            rp = list(reversed_path.get_position()) + list(reversed_path.get_orientation())
-            print("sponge ", sp)
-            print("wp1 ", po_1)  # Set control point orient to this?
-            print("wp2 ", po_2)
-            print("wp3 ", po_3)
-            print("reversed_path ", rp)
-            print("wp4 ", po_4)
 
             num_samples = 50
             sampled_poses = []
             for i in range(num_samples + 1):
                 rel_dist = i / num_samples
                 pos, ori = wp3.get_pose_on_path(rel_dist)
-                # ori[0] = ori[0] + 2 * np.pi
-                ori = po_1[3:]
                 sampled_poses.append(pos + ori)
-
             reversed_poses = sampled_poses[::-1]
+            reversed_path.insert_control_points(reversed_poses)
 
-            print(sampled_poses)
-            print(reversed_poses)
-
-
-            # wp3.cut_control_points(0, -1)
-            # wp3.insert_control_points(sampled_poses)
-
-            reversed_path.insert_control_points(sampled_poses)
-            # reversed_path.insert_control_points(reversed_poses)
-            # reversed_path.insert_control_points(
-            #     [po_2, po_4]
-            # )
-
-            p3 = wp3.get_pose()
-            # reversed_path.set_pose(p3)
-            # wp3.remove()
-            # wp3.set_name('oldwaypoint3')
             self.reversed_path = reversed_path
-            # wp3.remove()
-            # wp3._handle, reversed_path._handle = reversed_path._handle, wp3._handle
+        else:
+            self.reversed_path = None
 
             
         self._place_dirt()
@@ -117,7 +77,9 @@ class WipeDeskMM(Task):
         for d in self.dirt_spots:
             d.remove()
         self.dirt_spots = []
-        self.reversed_path.remove()
+
+        if self.reversed_path:
+            self.reversed_path.remove()
 
     def _place_dirt(self):
         for i in range(DIRT_POINTS):

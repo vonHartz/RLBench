@@ -40,7 +40,7 @@ class WipeDeskMM(Task):
             # reversed_path.set_pose(wp3.get_pose())
             reversed_path.set_name('waypoint3overwrite')
 
-            num_samples = 30
+            num_samples = 5
             sampled_poses = []
             for i in range(num_samples + 1):
                 rel_dist = i / num_samples
@@ -53,6 +53,11 @@ class WipeDeskMM(Task):
             print("================================")
             po_2 = list(wp2.get_position()) + list(wp2.get_orientation())
             po_4 = list(wp4.get_position()) + list(wp4.get_orientation())
+            sp = list(self.sponge.get_position()) + list(self.sponge.get_orientation())
+            wp1 = Dummy('waypoint1')
+            po_1 = list(wp1.get_position()) + list(wp1.get_orientation())
+            print(sp)
+            print(po_1)  # Set control point orient to this?
             print(po_2)
             print(po_4)
             print(sampled_poses)

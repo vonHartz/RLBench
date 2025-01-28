@@ -114,6 +114,8 @@ from rlbench.tasks.wipe_desk import WipeDesk
 from rlbench.tasks.place_cups_m_m import PlaceCupsMM
 from rlbench.tasks.turn_tap_m_m import TurnTapMM
 from rlbench.tasks.open_drawer_m_m import OpenDrawerMM
+from rlbench.tasks.wipe_desk_m_m import WipeDeskMM
+from rlbench.tasks.change_channel_m_m import ChangeChannelMM
 
 FS10_V1 = {
     'train': [

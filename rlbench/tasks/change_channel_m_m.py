@@ -63,6 +63,6 @@ class ChangeChannelMM(Task):
         return (0.0, 0.0, -np.pi / 2), (0.0, 0.0, np.pi / 2)
 
     def get_low_dim_state(self) -> np.ndarray:
-        shapes = [self._remote]
+        shapes = [self._remote, self._w6]
         states = [s.get_pose() for s in shapes]
         return np.concatenate(states)

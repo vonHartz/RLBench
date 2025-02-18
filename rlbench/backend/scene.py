@@ -79,6 +79,8 @@ class Scene(object):
             object_type=ObjectType.SHAPE)
         self._execute_demo_joint_position_action = None
 
+        # self._task_offset: np.ndarray | None = None
+
     def load(self, task: Task) -> None:
         """Loads the task and positions at the centre of the workspace.
 
@@ -87,7 +89,14 @@ class Scene(object):
         task.load()  # Load the task in to the scene
 
         # Set at the centre of the workspace
-        task.get_base().set_position(self._workspace.get_position())
+        ws_position = self._workspace.get_position()
+        # print('Workspace position:', ws_position)
+        # if self._task_offset is not None:
+        #     ws_position = ws_position + self._task_offset
+        #     print("ws_position:", ws_position)
+        # ws_position[0] = ws_position[0] + 0.15
+        # ws_position[2] = ws_position[2] + 0.5
+        task.get_base().set_position(ws_position)
 
         self._initial_task_state = task.get_state()
         self.task = task
@@ -112,7 +121,8 @@ class Scene(object):
         self._variation_index = 0
 
     def init_episode(self, index: int, randomly_place: bool=True,
-                     max_attempts: int = 5, place_demo: bool = False) -> List[str]:
+                     max_attempts: int = 5, place_demo: bool = False,
+                     verify_instance: bool = True) -> List[str]:
         """Calls the task init_episode and puts randomly in the workspace.
         """
 
@@ -132,15 +142,18 @@ class Scene(object):
                     self._place_task()
                     if self.robot.arm.check_arm_collision():
                         raise BoundaryError()
-                if not place_demo:
+                if not place_demo and verify_instance:
                     self.task.validate()
                 break
             except (BoundaryError, WaypointError) as e:
-                self.task.cleanup_()
-                self.task.restore_state(self._initial_task_state)
-                self._attempts += 1
-                if self._attempts >= max_attempts:
-                    raise e
+                if verify_instance:
+                    self.task.cleanup_()
+                    self.task.restore_state(self._initial_task_state)
+                    self._attempts += 1
+                    if self._attempts >= max_attempts:
+                        raise e
+                else:
+                    break
 
         # Let objects come to rest
         [self.pyrep.step() for _ in range(STEPS_BEFORE_EPISODE_START)]

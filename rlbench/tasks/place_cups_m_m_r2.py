@@ -9,7 +9,7 @@ from rlbench.backend.spawn_boundary import SpawnBoundary
 from rlbench.backend.task import Task
 
 
-class PlaceCupsMM(Task):
+class PlaceCupsMMR2(Task):
 
     def init_task(self) -> None:
         self._cups = [Shape('mug%d' % i) for i in range(3)]
@@ -27,7 +27,15 @@ class PlaceCupsMM(Task):
         self._initial_relative_cup = self._w1.get_pose(self._cups[0])
         self._initial_relative_spoke = self._w4.get_pose(self._spokes[0])
 
+        self._place_cups_holder_base = Shape('place_cups_holder_base')
+
     def init_episode(self, index: int) -> List[str]:
+        self._place_cups_holder_base.set_orientation(
+            self._place_cups_holder_base.get_orientation() + [0, 0, - np.pi / 8]
+        )
+        self._place_cups_holder_base.set_position(
+            self._place_cups_holder_base.get_position() + [0.25, 0.1, 0]
+        )
         self._free_spokes = list(range(3))
         self._cups_placed = 0
         self._next_spoke = np.random.randint(0, 3)

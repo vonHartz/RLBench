@@ -30,9 +30,9 @@ class PlaceCupsMMR1(Task):
         self._place_cups_holder_base = Shape('place_cups_holder_base')
 
     def init_episode(self, index: int) -> List[str]:
-        # self._place_cups_holder_base.set_orientation(
-        #     self._place_cups_holder_base.get_orientation() + [0, 0, - np.pi / 8]
-        # )
+        self._place_cups_holder_base.set_orientation(
+            self._place_cups_holder_base.get_orientation() + [0, 0, - np.pi / 8]
+        )
         self._place_cups_holder_base.set_position(
             self._place_cups_holder_base.get_position() + [0.25, 0.05, 0]
         )

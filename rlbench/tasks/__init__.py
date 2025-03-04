@@ -115,6 +115,8 @@ from rlbench.tasks.place_cups_m_m import PlaceCupsMM
 from rlbench.tasks.place_cups_m_m_r1 import PlaceCupsMMR1
 from rlbench.tasks.place_cups_m_m_r2 import PlaceCupsMMR2
 from rlbench.tasks.turn_tap_m_m import TurnTapMM
+from rlbench.tasks.turn_tap_m_m_r1 import TurnTapMMR1
+from rlbench.tasks.turn_tap_m_m_r2 import TurnTapMMR2
 from rlbench.tasks.open_drawer_m_m import OpenDrawerMM
 from rlbench.tasks.wipe_desk_m_m import WipeDeskMM
 from rlbench.tasks.change_channel_m_m import ChangeChannelMM

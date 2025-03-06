@@ -2,7 +2,8 @@ from abc import abstractmethod
 
 import numpy as np
 
-from rlbench.action_modes.arm_action_modes import ArmActionMode, JointPosition
+from rlbench.action_modes.arm_action_modes import ArmActionMode, JointPosition, \
+    EndEffectorPoseViaPlanning
 from rlbench.action_modes.gripper_action_modes import GripperActionMode, GripperJointPosition
 from rlbench.backend.scene import Scene
 
@@ -37,8 +38,13 @@ class MoveArmThenGripper(ActionMode):
     def action(self, scene: Scene, action: np.ndarray):
         arm_act_size = np.prod(self.arm_action_mode.action_shape(scene))
         arm_action = np.array(action[:arm_act_size])
-        ee_action = np.array(action[arm_act_size:])
-        self.arm_action_mode.action(scene, arm_action)
+        ee_action = np.array(action[arm_act_size:arm_act_size+1])
+        if type(self.arm_action_mode) == EndEffectorPoseViaPlanning:
+            ignore_collisions = bool(action[arm_act_size+1:arm_act_size+2])
+            self.arm_action_mode.action(scene, arm_action, ignore_collisions)
+        else:
+            self.arm_action_mode.action(scene, arm_action)
+        
         self.gripper_action_mode.action(scene, ee_action)
 
     def action_shape(self, scene: Scene):

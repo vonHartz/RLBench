@@ -28,7 +28,8 @@ class PlaceCupsMM(Task):
         self._initial_relative_spoke = self._w4.get_pose(self._spokes[0])
 
     def init_episode(self, index: int) -> List[str]:
-        self._free_spokes = list(range(3))
+        # self._free_spokes = list(range(3))
+        self._free_spokes = index
         self._cups_placed = 0
         self._next_spoke = np.random.randint(0, 3)
         self._index = index

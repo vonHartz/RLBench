@@ -20,7 +20,8 @@ class TurnTapMM(Task):
         self.right_joint = Joint('right_joint')
 
     def init_episode(self, index: int) -> List[str]:
-        option = np.random.choice(OPTIONS)
+        # option = np.random.choice(OPTIONS)
+        option = OPTIONS[index]
         if option == 'right':
             self.left_start.set_position(self.right_start.get_position())
             self.left_start.set_orientation(self.right_start.get_orientation())

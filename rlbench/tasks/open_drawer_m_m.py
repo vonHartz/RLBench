@@ -17,7 +17,8 @@ class OpenDrawerMM(Task):
         self._waypoint1 = Dummy('waypoint1')
 
     def init_episode(self, index: int) -> List[str]:
-        index = np.random.randint(0, 3)
+        # index = np.random.randint(0, 3)
+        # self.variation_index = index
         self._current_index = index
         option = self._options[index]
         self._waypoint1.set_position(self._anchors[index].get_position())

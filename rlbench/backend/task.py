@@ -348,6 +348,13 @@ class Task(object):
                 (state[1], len(objs)))
         self.pyrep.set_configuration_tree(state[0])
 
+    def get_mode_if_applicable(self) -> int | None:
+        """
+        For multimodal tasks, this function can be overridden to return which mode is currently being executed by the policy.
+        This is used to estimate the mode during inference, where we do not have ground-truth information on which mode is being executed.
+        """
+        return None
+
     #####################
     # Private functions #
     #####################

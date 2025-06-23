@@ -35,7 +35,7 @@ class OpenDrawerMM(Task):
         conditions_met = [c.condition_met()[0] for c in self.joint_conditions]
         # only one condition should be met at a time
         assert sum(conditions_met) <= 1, "More than one condition met"
-        return self._options[conditions_met.index(True)] if any(conditions_met) else None
+        return conditions_met.index(True) if any(conditions_met) else None
 
     def variation_count(self) -> int:
         return 3

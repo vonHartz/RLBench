@@ -20,9 +20,15 @@ class PlaceCupsMM(Task):
         self._w4 = Dummy('waypoint4')
         success_detectors = [
             ProximitySensor('success_detector%d' % i) for i in range(3)]
+        # self._on_peg_conditions = [OrConditions([
+        #     DetectedCondition(self._cups[ci], success_detectors[sdi]) for sdi in
+        #     range(3)]) for ci in range(3)]
+        # The original code was checking whether each cup was on any spoke.
+        # But we want the multimodality wrt the spokes, so instead we check
+        # whether any cup is on the spoke corresponding to the current index.
         self._on_peg_conditions = [OrConditions([
-            DetectedCondition(self._cups[ci], success_detectors[sdi]) for sdi in
-            range(3)]) for ci in range(3)]
+            DetectedCondition(self._cups[ci], success_detectors[sdi]) for ci in range(3)
+        ]) for sdi in range(3)]
         self.register_graspable_objects(self._cups)
         self._initial_relative_cup = self._w1.get_pose(self._cups[0])
         self._initial_relative_spoke = self._w4.get_pose(self._spokes[0])
@@ -62,6 +68,14 @@ class PlaceCupsMM(Task):
 
     def variation_count(self) -> int:
         return 3
+
+    def get_mode_if_applicable(self):
+        conditions_met = [c.condition_met()[0] for c in
+                          self._on_peg_conditions]
+        # only one condition should be met at a time
+        assert sum(conditions_met) <= 1, "More than one condition met"
+        return conditions_met.index(True) if any(conditions_met) else None
+
 
     def _move_above_next_target(self, waypoint):
         self._w1.set_parent(self._cups[self._cups_placed])

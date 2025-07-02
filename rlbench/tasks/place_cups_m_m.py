@@ -28,15 +28,18 @@ class PlaceCupsMM(Task):
         self._initial_relative_spoke = self._w4.get_pose(self._spokes[0])
 
     def init_episode(self, index: int) -> List[str]:
-        # self._free_spokes = list(range(3))
-        self._free_spokes = index
+        self._free_spokes = list(range(3))
         self._cups_placed = 0
-        self._next_spoke = np.random.randint(0, 3)
-        self._index = index
+        self._next_spoke = index
+        # print('next spoke:', self._next_spoke)
+        self._index = 0  # index is used for the number of cups to place
         b = SpawnBoundary([self._cups_boundary])
         [b.sample(c, min_distance=0.14) for c in self._cups]
-        success_conditions = [NothingGrasped(self.robot.gripper)
-                              ] + self._on_peg_conditions[:index + 1]
+        # success_conditions = [NothingGrasped(self.robot.gripper)
+        #                       ] + self._on_peg_conditions[:index + 1]
+        success_conditions = [
+            NothingGrasped(self.robot.gripper),
+            OrConditions(self._on_peg_conditions)] 
         self.register_success_conditions(success_conditions)
         self.register_waypoint_ability_start(
             0, self._move_above_next_target)

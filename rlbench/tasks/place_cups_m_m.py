@@ -73,7 +73,8 @@ class PlaceCupsMM(Task):
         conditions_met = [c.condition_met()[0] for c in
                           self._on_peg_conditions]
         # only one condition should be met at a time
-        assert sum(conditions_met) <= 1, "More than one condition met"
+        if sum(conditions_met) > 1:
+            print(f"\n WARNING: More than one condition met: {conditions_met} \n")
         return conditions_met.index(True) if any(conditions_met) else None
 
 

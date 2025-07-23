@@ -28,11 +28,11 @@ class TurnTapMM(Task):
             self.left_end.set_position(self.right_end.get_position())
             self.left_end.set_orientation(self.right_end.get_orientation())
 
-        joint_conditions = [
+        self.joint_conditions = [
             JointCondition(self.right_joint, 1.57),
             JointCondition(self.left_joint, 1.57)]
         self.register_success_conditions(
-            [OrConditions(joint_conditions)]
+            [OrConditions(self.joint_conditions)]
         )
 
         return ['turn %s tap' % option,
@@ -41,6 +41,15 @@ class TurnTapMM(Task):
 
     def variation_count(self) -> int:
         return 2
+
+    def get_mode_if_applicable(self):
+        conditions_met = [c.condition_met()[0] for c in self.joint_conditions]
+        # only one condition should be met at a time
+        if sum(conditions_met) > 1:
+            print(f"\n WARNING: More than one condition met: {conditions_met} \n")
+        return conditions_met.index(True) if any(conditions_met) else None
+
+
 
     def get_low_dim_state(self) -> np.ndarray:
         shapes = [self.left_joint]

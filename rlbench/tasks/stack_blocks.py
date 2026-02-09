@@ -26,6 +26,9 @@ class StackBlocks(Task):
         self.boundaries = [Shape('stack_blocks_boundary%d' % i)
                            for i in range(4)]
 
+        # Drop-off zone
+        self.drop_off_zone = Shape('stack_blocks_target_plane')
+
         self.register_graspable_objects(self.target_blocks + self.distractors)
 
         self.register_waypoint_ability_start(0, self._move_above_next_target)
@@ -86,8 +89,7 @@ class StackBlocks(Task):
         w2.set_orientation([ox, oy, -oz])
 
     def _move_above_drop_zone(self, waypoint):
-        target = Shape('stack_blocks_target_plane')
-        x, y, z = target.get_position()
+        x, y, z = self.drop_off_zone.get_position()
         waypoint.get_waypoint_object().set_position(
             [x, y, z + 0.08 + 0.06 * self.blocks_stacked])
 
@@ -100,7 +102,6 @@ class StackBlocks(Task):
         return self.blocks_stacked < self.blocks_to_stack
 
     def get_low_dim_state(self) -> np.ndarray:
-        shapes = self.target_blocks + self.distractors
+        shapes = self.target_blocks + self.distractors + [self.drop_off_zone]
         states = [s.get_pose() for s in shapes]
         return np.concatenate(states)
-

@@ -25,7 +25,8 @@ class WipeDeskMM(Task):
         self.b = SpawnBoundary(boundaries)
 
     def init_episode(self, index: int) -> List[str]:
-        mode = np.random.randint(0, 2)
+        # mode = np.random.randint(0, 2)
+        mode = index
         if mode == 1:
             wp2 = Dummy('waypoint2')
             wp4 = Dummy('waypoint4')

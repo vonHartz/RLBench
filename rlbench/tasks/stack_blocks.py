@@ -10,6 +10,7 @@ from rlbench.backend.spawn_boundary import SpawnBoundary
 from rlbench.const import colors
 
 MAX_STACKED_BLOCKS = 3
+MIN_STACKED_BLOCKS = 3
 DISTRACTORS = 4
 
 
@@ -39,7 +40,7 @@ class StackBlocks(Task):
     def init_episode(self, index: int) -> List[str]:
         # For each color, we want to have 2, 3 or 4 blocks stacked
         color_index = int(index / MAX_STACKED_BLOCKS)
-        self.blocks_to_stack = 2 + index % MAX_STACKED_BLOCKS
+        self.blocks_to_stack = MIN_STACKED_BLOCKS + index % MAX_STACKED_BLOCKS
         color_name, color_rgb = colors[color_index]
         for b in self.target_blocks:
             b.set_color(color_rgb)
@@ -62,6 +63,7 @@ class StackBlocks(Task):
         b = SpawnBoundary(self.boundaries)
         for block in self.target_blocks + self.distractors:
             b.sample(block, min_distance=0.1)
+            self._canonicalize_yaw_mod_90(block)
 
         return ['stack %d %s blocks' % (self.blocks_to_stack, color_name),
                 'place %d of the %s cubes on top of each other'
@@ -100,6 +102,15 @@ class StackBlocks(Task):
     def _repeat(self):
         self.blocks_stacked += 1
         return self.blocks_stacked < self.blocks_to_stack
+
+    def _canonicalize_yaw_mod_90(self, shape):
+        x_rot, y_rot, z_rot = shape.get_orientation()
+
+        # modulo 90° (π/2)
+        z_rot = np.mod(z_rot, np.pi / 2.0) + np.pi / 2.0
+
+        # Set new orientation
+        shape.set_orientation([x_rot, y_rot, z_rot])
 
     def get_low_dim_state(self) -> np.ndarray:
         shapes = self.target_blocks + self.distractors + [self.drop_off_zone]

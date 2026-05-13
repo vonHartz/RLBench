@@ -1,6 +1,7 @@
 from typing import List, Tuple
 
 import numpy as np
+from pyrep.objects.dummy import Dummy
 from pyrep.objects.shape import Shape
 from pyrep.objects.proximity_sensor import ProximitySensor
 from rlbench.backend.task import Task
@@ -10,10 +11,11 @@ from rlbench.backend.conditions import DetectedCondition, NothingGrasped
 class StackWine(Task):
 
     def init_task(self):
-        wine_bottle = Shape('wine_bottle')
-        self.register_graspable_objects([wine_bottle])
+        self.wine_bottle = Shape('wine_bottle')
+        self.success_sensor = ProximitySensor('success')
+        self.register_graspable_objects([self.wine_bottle])
         self.register_success_conditions(
-            [DetectedCondition(wine_bottle, ProximitySensor('success'))])
+            [DetectedCondition(self.wine_bottle, self.success_sensor)])
 
     def init_episode(self, index: int) -> List[str]:
         return ['stack wine bottle',
@@ -30,7 +32,7 @@ class StackWine(Task):
         return [0, 0, -np.pi / 4.], [0, 0, np.pi / 4.]
         
     def get_low_dim_state(self) -> np.ndarray:
-        shapes = [Shape("wine_bottle"), ProximitySensor("success")]
+        shapes = [self.wine_bottle, self.success_sensor]
         states = [s.get_pose() for s in shapes]
         return np.concatenate(states)
 

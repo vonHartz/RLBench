@@ -18,6 +18,7 @@ from rlbench.backend.utils import rgb_handles_to_mask
 from rlbench.demo import Demo
 from rlbench.noise_model import NoiseModel
 from rlbench.observation_config import ObservationConfig, CameraConfig
+from rlbench.utils import interpolate_pose
 
 STEPS_BEFORE_EPISODE_START = 10
 
@@ -161,6 +162,80 @@ class Scene(object):
         [self.pyrep.step() for _ in range(STEPS_BEFORE_EPISODE_START)]
         self._has_init_episode = True
         return descriptions
+    
+    def kidnap(self, max_attempts: int = 5, verify_instance: bool = True):
+        # Replace the task without resetting the robot
+        while self._attempts < max_attempts:
+            try:
+                if not self.task.is_static_workspace():
+                    self._place_task()
+                    if self.robot.arm.check_arm_collision():
+                        raise BoundaryError()
+                if verify_instance:
+                    self.task.validate()
+                break
+            except (BoundaryError, WaypointError) as e:
+                if verify_instance:
+                    self.task.cleanup_()
+                    self.task.restore_state(self._initial_task_state)
+                    self._attempts += 1
+                    if self._attempts >= max_attempts:
+                        raise e
+                else:
+                    break
+
+    def _move_task_smoothly(self, source_pose: np.ndarray | None = None,
+                            goal_pose: np.ndarray | None = None,
+                            current_step: int = 0, total_steps: int = 10,
+                            max_attempts: int = 5,
+                            verify_instance: bool = True
+                            ) -> tuple[np.ndarray, np.ndarray, int]:
+        # Like kidnap but moves the task smoothly over time to the new location instead of teleporting it
+        root_object = self.task.boundary_root()
+
+        if goal_pose is None:
+            source_pose = root_object.get_pose()
+            self.kidnap(max_attempts=max_attempts, verify_instance=verify_instance)
+            goal_pose = root_object.get_pose()
+
+        interp_pose = interpolate_pose(source_pose, goal_pose, current_step / total_steps)
+        root_object.set_pose(interp_pose)
+
+        current_step += 1
+
+        return source_pose, goal_pose, current_step
+    
+    def move_task_smoothly(self, total_steps: int = 10, max_attempts: int = 5,
+                           verify_instance: bool = True) -> bool:
+        if not hasattr(self, '_move_task_smoothly_state'):
+            self._move_task_smoothly_state = {
+                'source_pose': None,
+                'goal_pose': None,
+                'current_step': 0
+            }
+        
+        state = self._move_task_smoothly_state
+        
+        source_pose, goal_pose, current_step = self._move_task_smoothly(
+            source_pose=state['source_pose'],
+            goal_pose=state['goal_pose'],
+            current_step=state['current_step'],
+            total_steps=total_steps,
+            max_attempts=max_attempts,
+            verify_instance=verify_instance
+        )
+
+        state['source_pose'] = source_pose
+        state['goal_pose'] = goal_pose
+        state['current_step'] = current_step
+
+        if current_step >= total_steps:
+            del self._move_task_smoothly_state
+
+            return True
+        else:
+            return False
+
 
     def reset(self) -> None:
         """Resets the joint angles. """

@@ -315,3 +315,81 @@ def _resize_if_needed(image, size):
     if image.size[0] != size[0] or image.size[1] != size[1]:
         image = image.resize(size)
     return image
+
+
+def normalize_quaternion(q):
+    q = np.asarray(q, dtype=np.float64)
+    return q / np.linalg.norm(q)
+
+
+def slerp(q0, q1, t):
+    """
+    Spherical linear interpolation between two quaternions.
+
+    Parameters
+    ----------
+    q0, q1 : array-like, shape (4,)
+        Quaternions in [x, y, z, w] format.
+    t : float
+        Interpolation ratio in [0, 1].
+
+    Returns
+    -------
+    q : ndarray, shape (4,)
+        Interpolated quaternion.
+    """
+    q0 = normalize_quaternion(q0)
+    q1 = normalize_quaternion(q1)
+
+    dot = np.dot(q0, q1)
+
+    # Take shortest path
+    if dot < 0.0:
+        q1 = -q1
+        dot = -dot
+
+    # If quaternions are very close, use linear interpolation
+    if dot > 0.9995:
+        q = q0 + t * (q1 - q0)
+        return normalize_quaternion(q)
+
+    theta_0 = np.arccos(dot)
+    theta = theta_0 * t
+
+    sin_theta = np.sin(theta)
+    sin_theta_0 = np.sin(theta_0)
+
+    s0 = np.cos(theta) - dot * sin_theta / sin_theta_0
+    s1 = sin_theta / sin_theta_0
+
+    return s0 * q0 + s1 * q1
+
+
+def interpolate_pose(pose0, pose1, t):
+    """
+    Interpolate between two poses.
+
+    Parameters
+    ----------
+    pose0, pose1 : ndarray, shape (7,)
+        Pose format: [x, y, z, qx, qy, qz, qw]
+    t : float
+        Interpolation ratio in [0, 1].
+
+    Returns
+    -------
+    pose : ndarray, shape (7,)
+        Interpolated pose.
+    """
+    pose0 = np.asarray(pose0, dtype=np.float64)
+    pose1 = np.asarray(pose1, dtype=np.float64)
+
+    # Linear interpolation for position
+    p0, p1 = pose0[:3], pose1[:3]
+    p = (1.0 - t) * p0 + t * p1
+
+    # SLERP for orientation
+    q0, q1 = pose0[3:], pose1[3:]
+    q = slerp(q0, q1, t)
+
+    return np.concatenate([p, q])

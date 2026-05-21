@@ -84,6 +84,8 @@ class Scene(object):
 
         # self._task_offset: np.ndarray | None = None
 
+        self._move_task_smoothly_state = None
+
     def load(self, task: Task) -> None:
         """Loads the task and positions at the centre of the workspace.
 
@@ -130,6 +132,8 @@ class Scene(object):
         """
 
         self._variation_index = index
+
+        self._move_task_smoothly_state = None
 
         if not self._has_init_task:
             self.init_task()
@@ -207,12 +211,12 @@ class Scene(object):
     
     def move_task_smoothly(self, total_steps: int = 10, max_attempts: int = 5,
                            verify_instance: bool = True) -> bool:
-        if not hasattr(self, '_move_task_smoothly_state'):
+        if self._move_task_smoothly_state is None:
             self._move_task_smoothly_state = {
-                'source_pose': None,
-                'goal_pose': None,
-                'current_step': 0
-            }
+                    'source_pose': None,
+                    'goal_pose': None,
+                    'current_step': 0
+                }
         
         state = self._move_task_smoothly_state
         
@@ -234,6 +238,7 @@ class Scene(object):
 
             return True
         else:
+            self._move_task_smoothly_state = state
             return False
 
 

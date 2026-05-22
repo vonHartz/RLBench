@@ -167,7 +167,7 @@ class Scene(object):
         self._has_init_episode = True
         return descriptions
     
-    def kidnap(self, max_attempts: int = 5, verify_instance: bool = True):
+    def kidnap(self, max_attempts: int = 20, verify_instance: bool = True):
         # Replace the task without resetting the robot
         while self._attempts < max_attempts:
             try:
@@ -209,7 +209,7 @@ class Scene(object):
 
         return source_pose, goal_pose, current_step
     
-    def move_task_smoothly(self, total_steps: int = 10, max_attempts: int = 5,
+    def move_task_smoothly(self, total_steps: int = 10, max_attempts: int = 20,
                            verify_instance: bool = True) -> bool:
         if self._move_task_smoothly_state is None:
             self._move_task_smoothly_state = {

@@ -1,15 +1,23 @@
 import importlib
 from os.path import exists, dirname, abspath, join
 from typing import Type, List
+import pickle
 
 from pyrep import PyRep
 from pyrep.objects import VisionSensor
 from pyrep.robots.arms.panda import Panda
+from pyrep.robots.end_effectors.panda_gripper import PandaGripper
+from pyrep.robots.arms.dual_panda import PandaLeft
+from pyrep.robots.arms.dual_panda import PandaRight
+from pyrep.robots.end_effectors.dual_panda_gripper import PandaGripperRight
+from pyrep.robots.end_effectors.dual_panda_gripper import PandaGripperLeft
 
 from rlbench import utils
 from rlbench.action_modes.action_mode import ActionMode
 from rlbench.backend.const import *
 from rlbench.backend.robot import Robot
+from rlbench.backend.robot import UnimanualRobot
+from rlbench.backend.robot import BimanualRobot
 from rlbench.backend.scene import Scene
 from rlbench.backend.task import Task
 from rlbench.const import SUPPORTED_ROBOTS
@@ -19,6 +27,8 @@ from rlbench.sim2real.domain_randomization import RandomizeEvery, \
     VisualRandomizationConfig, DynamicsRandomizationConfig
 from rlbench.sim2real.domain_randomization_scene import DomainRandomizationScene
 from rlbench.task_environment import TaskEnvironment
+
+import logging
 
 DIR_PATH = dirname(abspath(__file__))
 
@@ -93,13 +103,37 @@ class Environment(object):
         if self._pyrep is not None:
             raise RuntimeError('Already called launch!')
         self._pyrep = PyRep()
-        self._pyrep.launch(join(DIR_PATH, TTT_FILE), headless=self._headless)
+        if self._robot_setup == 'dual_panda':
+            self._pyrep.launch(join(DIR_PATH, BIMANUAL_TTT_FILE), headless=self._headless)
+        else:
+            self._pyrep.launch(join(DIR_PATH, TTT_FILE), headless=self._headless)
 
         arm_class, gripper_class, _ = SUPPORTED_ROBOTS[
             self._robot_setup]
 
+
+        if self._robot_setup == 'dual_panda':
+
+            logging.info("Using dual panda robot")
+           
+            #panda_arm = Panda()
+            #panda_pos = panda_arm.get_position()
+            #panda_arm.remove()
+
+            right_arm = PandaRight()
+            left_arm = PandaLeft()
+            right_gripper = PandaGripperRight()
+            left_gripper = PandaGripperLeft()
+
+            # ..not updating position as we assume that the scene already contains two pandas which are placed correctly     
+            #relative_left_position = left_arm.get_position(relative_to=right_arm)            
+            #right_arm.set_position(panda_pos)
+            #left_arm.set_position(relative_left_position, relative_to=right_arm)
+
+            self._robot = BimanualRobot(right_arm, right_gripper, left_arm, left_gripper)
+
         # We assume the panda is already loaded in the scene.
-        if self._robot_setup != 'panda':
+        elif self._robot_setup != 'panda':
             # Remove the panda from the scene
             panda_arm = Panda()
             panda_pos = panda_arm.get_position()
@@ -108,10 +142,12 @@ class Environment(object):
             self._pyrep.import_model(arm_path)
             arm, gripper = arm_class(), gripper_class()
             arm.set_position(panda_pos)
+            self._robot = UnimanualRobot(arm, gripper)
         else:
             arm, gripper = arm_class(), gripper_class()
+            self._robot = UnimanualRobot(arm, gripper)
 
-        self._robot = Robot(arm, gripper)
+
         if self._randomize_every is None:
             self._scene = Scene(
                 self._pyrep, self._robot, self._obs_config, self._robot_setup)
@@ -134,7 +170,6 @@ class Environment(object):
         # If user hasn't called launch, implicitly call it.
         if self._pyrep is None:
             self.launch()
-
         self._scene.unload()
         task = task_class(self._pyrep, self._robot)
         self._prev_task = task
@@ -161,6 +196,19 @@ class Environment(object):
             task_name, self._obs_config, random_selection, from_episode_number)
         return demos
 
+    def get_task_descriptions_with_episode(self, task_name: str,
+                                           episode_number: int) -> List[str]:
+        episode_description_pkl_file = join(self._dataset_root,
+                                            f'{task_name}',
+                                            VARIATIONS_ALL_FOLDER,
+                                            EPISODES_FOLDER,
+                                            EPISODE_FOLDER % episode_number,
+                                            VARIATION_DESCRIPTIONS)
+        with open(episode_description_pkl_file, 'rb') as f:
+            episode_description = pickle.load(f)
+
+        return episode_description
+
     def get_scene_data(self) -> dict:
         """Get the data of various scene/camera information.
 
@@ -171,6 +219,7 @@ class Environment(object):
 
         def _get_cam_info(cam: VisionSensor):
             if not cam.still_exists():
+                logging.warning("Camera no longer exists")
                 return None
             intrinsics = cam.get_intrinsic_matrix()
             return dict(
@@ -182,15 +231,9 @@ class Environment(object):
         headless = self._headless
         self._headless = True
         self.launch()
-        d = dict(
-            left_shoulder_camera=_get_cam_info(
-                self._scene._cam_over_shoulder_left),
-            right_shoulder_camera=_get_cam_info(
-                self._scene._cam_over_shoulder_right),
-            front_camera=_get_cam_info(self._scene._cam_front),
-            wrist_camera=_get_cam_info(self._scene._cam_wrist),
-            overhead_camera=_get_cam_info(self._scene._cam_overhead)
-        )
+
+        d = {camera_name: _get_cam_info(sensor) for camera_name, sensor in self._scene.camera_sensors}
+
         self.shutdown()
         self._headless = headless
         return d

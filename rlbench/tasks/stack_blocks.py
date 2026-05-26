@@ -93,7 +93,15 @@ class StackBlocks(Task):
     def _move_above_drop_zone(self, waypoint):
         x, y, z = self.drop_off_zone.get_position()
         waypoint.get_waypoint_object().set_position(
-            [x, y, z + 0.08 + 0.06 * self.blocks_stacked])
+            [x, y, z + 0.08 + 0.06 * self.blocks_stacked + 0.05])
+
+    def _is_last(self, waypoint):
+        last = self.blocks_stacked == self.blocks_to_stack - 1
+        waypoint.skip = last
+
+    def _is_last(self, waypoint):
+        last = self.blocks_stacked == self.blocks_to_stack - 1
+        waypoint.skip = last
 
     def _is_last(self, waypoint):
         last = self.blocks_stacked == self.blocks_to_stack - 1

@@ -21,8 +21,9 @@ from rlbench.backend.scene import Scene
 from rlbench.backend.exceptions import *
 from rlbench.observation_config import ObservationConfig, CameraConfig
 from rlbench.backend.robot import Robot
+from rlbench.backend.robot import UnimanualRobot
 from rlbench.utils import name_to_task_class
-from task_validator import task_smoke, TaskValidationError
+from tools.task_validator import task_smoke, TaskValidationError
 import shutil
 
 CURRENT_DIR = dirname(abspath(__file__))
@@ -275,7 +276,7 @@ if __name__ == '__main__':
     pr.launch(ttt_file, responsive_ui=True)
     pr.step_ui()
 
-    robot = Robot(Panda(), PandaGripper())
+    robot = UnimanualRobot(Panda(), PandaGripper())
     cam_config = CameraConfig(rgb=True, depth=False, mask=False,
                               render_mode=RenderMode.OPENGL)
     obs_config = ObservationConfig()

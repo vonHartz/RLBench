@@ -7,6 +7,7 @@ class Demo(object):
         self._observations = observations
         self.random_seed = random_seed
         self.num_reset_attempts = num_reset_attempts
+        self.variation_number = 0
 
     def __len__(self):
         return len(self._observations)

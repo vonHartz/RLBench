@@ -9,7 +9,7 @@ from rlbench.action_modes.action_mode import ActionMode
 from rlbench.backend.exceptions import BoundaryError, WaypointError, \
     TaskEnvironmentError
 from rlbench.backend.observation import Observation
-from rlbench.backend.robot import Robot
+from rlbench.backend.robot import Robot, UnimanualRobot, BimanualRobot
 from rlbench.backend.scene import Scene
 from rlbench.backend.task import Task
 from rlbench.demo import Demo
@@ -60,9 +60,15 @@ class TaskEnvironment(object):
 
         self._scene.load(self._task)
         self._pyrep.start()
-        self._robot_shapes = self._robot.arm.get_objects_in_tree(
-            object_type=ObjectType.SHAPE)
 
+        if self._robot.is_bimanual:
+             #..fixme
+            logging.warning("not sure how _robot_shapes are used is used.")
+            self._robot_shapes = self._robot.right_arm.get_objects_in_tree(object_type=ObjectType.SHAPE) + self._robot.left_arm.get_objects_in_tree(object_type=ObjectType.SHAPE)
+        else:
+            self._robot_shapes = self._robot.arm.get_objects_in_tree(object_type=ObjectType.SHAPE)
+        
+  
     def get_name(self) -> str:
         return self._task.get_name()
 
@@ -102,6 +108,9 @@ class TaskEnvironment(object):
         # Returns a list of descriptions and the first observation
         return desc, self._scene.get_observation()
 
+    def get_task_descriptions(self) -> List[str]:
+        return self._scene.task.init_episode(self._variation_number)
+
     def get_observation(self) -> Observation:
         return self._scene.get_observation()
 
@@ -135,6 +144,7 @@ class TaskEnvironment(object):
             raise RuntimeError(
                 "Can't ask for a stored demo when no dataset root provided.")
 
+
         if not live_demos:
             if self._dataset_root is None or len(self._dataset_root) == 0:
                 raise RuntimeError(
@@ -143,12 +153,22 @@ class TaskEnvironment(object):
                 amount, image_paths, self._dataset_root, self._variation_number,
                 self._task.get_name(), self._obs_config,
                 random_selection, from_episode_number)
-        else:
+        elif not self._robot.is_bimanual:
             ctr_loop = self._robot.arm.joints[0].is_control_loop_enabled()
             self._robot.arm.set_control_loop_enabled(True)
             demos = self._get_live_demos(
                 amount, callable_each_step, max_attempts)
             self._robot.arm.set_control_loop_enabled(ctr_loop)
+        elif self._robot.is_bimanual:
+            ctr_loop_right = self._robot.right_arm.joints[0].is_control_loop_enabled()
+            ctr_loop_left = self._robot.left_arm.joints[0].is_control_loop_enabled()
+            self._robot.right_arm.set_control_loop_enabled(True)
+            self._robot.left_arm.set_control_loop_enabled(True)
+            demos = self._get_live_demos(
+                amount, callable_each_step, max_attempts)
+            self._robot.right_arm.set_control_loop_enabled(ctr_loop_right)
+            self._robot.left_arm.set_control_loop_enabled(ctr_loop_left)
+
         return demos
 
     def _get_live_demos(self, amount: int,
@@ -169,7 +189,7 @@ class TaskEnvironment(object):
                     break
                 except Exception as e:
                     attempts -= 1
-                    logging.info('Bad demo. ' + str(e))
+                    logging.warning('Bad demo. ' + str(e) + ' Attempts left: ' + str(attempts))
             if attempts <= 0:
                 raise RuntimeError(
                     'Could not collect demos. Maybe a problem with the task?')
@@ -180,3 +200,10 @@ class TaskEnvironment(object):
         variation_index = demo._observations[0].misc["variation_index"]
         self.set_variation(variation_index)
         return self.reset(demo)
+    
+        # TODO: merge the below from MarkusGrotz
+        # do not set variation as suggested in commit 6e79c5bac. This version
+        # of RLBench already stores the variation index
+        #variation_index = demo._observations[0].misc["variation_index"]
+        #self.set_variation(variation_index)
+        # return self.reset()

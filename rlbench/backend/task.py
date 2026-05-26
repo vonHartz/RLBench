@@ -12,14 +12,19 @@ from pyrep.objects.dummy import Dummy
 from pyrep.objects.force_sensor import ForceSensor
 from pyrep.objects.joint import Joint
 from pyrep.objects.object import Object
+from pyrep.robots.arms.dual_panda import PandaRight
+from pyrep.robots.arms.dual_panda import PandaLeft
 
 from rlbench.backend.conditions import Condition
 from rlbench.backend.exceptions import WaypointError
 from rlbench.backend.observation import Observation
-from rlbench.backend.robot import Robot
+from rlbench.backend.robot import BimanualRobot, Robot, UnimanualRobot
 from rlbench.backend.waypoints import Point, PredefinedPath, Waypoint
 
+import logging
+
 TASKS_PATH = join(dirname(abspath(__file__)), '../tasks')
+BIMANUAL_TASKS_PATH = join(dirname(abspath(__file__)), '../bimanual_tasks')
 
 
 class Task(object):
@@ -320,6 +325,7 @@ class Task(object):
     def cleanup_(self) -> None:
         for cond in self._success_conditions + self._fail_conditions:
             cond.reset()
+                
         self._waypoints = None
         self.cleanup()
 
@@ -343,9 +349,9 @@ class Task(object):
     def restore_state(self, state: Tuple[bytes, int]) -> None:
         objs = self.get_base().get_objects_in_tree(exclude_base=False)
         if len(objs) != state[1]:
-            raise RuntimeError(
-                'Expected to be resetting %d objects, but there were %d.' %
-                (state[1], len(objs)))
+            if self.name not in ['empty_container']:               
+                logging.error('Expected to be resetting %d objects, but there were %d.', state[1], len(objs))
+                raise RuntimeError("Insufficient number of objects in the scene. Maybe an object is still grasped. Please check the task!")
         self.pyrep.set_configuration_tree(state[0])
 
     def get_mode_if_applicable(self) -> int | None:
@@ -358,9 +364,29 @@ class Task(object):
     #####################
     # Private functions #
     #####################
-
     def _feasible(self, waypoints: List[Point]) -> Tuple[bool, int]:
-        arm = self.robot.arm
+        if isinstance(self.robot, UnimanualRobot):
+            arm = self.robot.arm
+            logging.warn("single robot")
+            return self._feasible_with_arm(arm, waypoints)
+        elif isinstance(self.robot, BimanualRobot):
+            way_points_right = [w for w in waypoints if isinstance(w._arm, PandaRight)]
+            way_points_left = [w for w in waypoints if isinstance(w._arm, PandaLeft)]
+
+            logging.info("total waypoints %s, (right=%s, left=%s)", len(waypoints), len(way_points_right), len(way_points_left))
+
+            f_right = self._feasible_with_arm(self.robot.right_arm, way_points_right)
+            f_left = self._feasible_with_arm(self.robot.left_arm, way_points_left)
+            if f_right[0] and f_left[0]:
+                return True, -1
+            else:
+                logging.warn("Waypoints are not reachable right=%s left=%s", f_right, f_left)
+                return False, (f_right, f_left)
+
+        else:
+            logging.error('Invalid robot')
+
+    def _feasible_with_arm(self, arm, waypoints: List[Point]) -> Tuple[bool, str]:
         start_vals = arm.get_joint_positions()
         for i, point in enumerate(waypoints):
             path = None
@@ -370,11 +396,12 @@ class Task(object):
                 pass
             if path is None:
                 arm.set_joint_positions(start_vals)
-                return False, i
+                
+                return False, str(point)
             path.set_to_end()
         # Needed twice otherwise can glitch out.
         arm.set_joint_positions(start_vals)
-        return True, -1
+        return True, ""
 
     def _get_waypoints(self, validating=False) -> List[Waypoint]:
         waypoint_name = 'waypoint%d'
@@ -383,7 +410,7 @@ class Task(object):
         i = 0
         while True:
             name = waypoint_name % i
-            if not Object.exists(name) or i == self._stop_at_waypoint_index:
+            if i == self._stop_at_waypoint_index or not Object.exists(name):
                 # There are no more waypoints...
                 break
             # HACK
@@ -392,7 +419,7 @@ class Task(object):
                 name = overwrite_name
             ob_type = Object.get_object_type(name)
             way = None
-            if ob_type == ObjectType.DUMMY:
+            if ob_type == ObjectType.DUMMY:                
                 waypoint = Dummy(name)
                 start_func = None
                 end_func = None
@@ -400,12 +427,24 @@ class Task(object):
                     start_func = self._waypoint_abilities_start[i]
                 if i in self._waypoint_abilities_end:
                     end_func = self._waypoint_abilities_end[i]
-                way = Point(waypoint, self.robot,
+                if isinstance(self.robot, UnimanualRobot):
+                    arm = self.robot.arm
+                    way = Point(waypoint, arm,
                             start_of_path_func=start_func,
                             end_of_path_func=end_func)
+                elif isinstance(self.robot, BimanualRobot):
+                    waypoint_mapping = self.waypoint_mapping[name]
+                    logging.debug("mapping waypoint %s to %s", name, waypoint_mapping)
+                    arms = self.robot.get_arms_by_name(waypoint_mapping)
+                    if not arms:
+                        logging.warning("unable to get arm for waypoint %s", name)
+                    for arm in arms:
+                        way = Point(waypoint, arm,
+                                    start_of_path_func=start_func,
+                                    end_of_path_func=end_func)
             elif ob_type == ObjectType.PATH:
                 cartestian_path = CartesianPath(name)
-                way = PredefinedPath(cartestian_path, self.robot)
+                way = PredefinedPath(cartestian_path, arm)
             else:
                 raise WaypointError(
                     '%s is an unsupported waypoint type %s' % (
@@ -421,7 +460,28 @@ class Task(object):
         feasible, way_i = self._feasible(waypoints)
         if not feasible:
             raise WaypointError(
-                "Infeasible episode. Can't reach waypoint %d." % way_i, self)
+                "Infeasible episode. Can't reach waypoint %s." % str(way_i), self)
         for func, way in additional_waypoint_inits:
             func(way)
         return waypoints
+
+
+
+class BimanualTask(Task):
+
+    def __init__(self, pyrep: PyRep, robot: Robot, name: str = None):
+        if not isinstance(robot, BimanualRobot):
+            logging.error("tasks requires a bimanual robot")
+        super().__init__(pyrep, robot, name)
+
+    @property
+    def right_waypoints(self):
+        waypoints = self.get_waypoints()
+        wm = self.waypoint_mapping
+        return [w for w in waypoints if wm[w.name] == 'right']
+
+    @property
+    def left_waypoints(self):
+        waypoints = self.get_waypoints()
+        wm = self.waypoint_mapping
+        return [w for w in waypoints if wm[w.name] == 'left']

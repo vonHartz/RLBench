@@ -50,7 +50,8 @@ class UnimanualRobot(Robot):
         self.gripper = gripper
 
     def release_gripper(self, name: str = None):
-        assert name is None, f"Unimanual robot should not specify a name for the gripper, got {name}."
+        # HACK: not sure why these are passed here. Is Nils' merge incomplete?
+        assert name in [None, 'open', 'close', 'ignore'], f"Unimanual robot should specify name as None, 'open', 'close' or 'ignore', got '{name}'."
         self.gripper.release()
 
     def initial_state(self):

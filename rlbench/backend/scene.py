@@ -488,7 +488,7 @@ class Scene(object):
                 if point.skip:
                     continue
 
-                colliding_shapes = []                
+                colliding_shapes = []
 
                 grasped_objects = self.robot.gripper.get_grasped_objects()
                 colliding_shapes = [s for s in self.pyrep.get_objects_in_tree(
@@ -497,7 +497,7 @@ class Scene(object):
                                 and self.robot.arm.check_arm_collision(s)]
             
 
-                logging.info("got list of colliding objects: %s", colliding_shapes)
+                # logging.info("got list of colliding objects: %s", colliding_shapes)
                 
                 [s.set_collidable(False) for s in colliding_shapes]
                 try:
@@ -511,7 +511,7 @@ class Scene(object):
                         self.task) from e
                 ext = point.get_ext()
 
-                logging.info("point.get_ext() %s", str(ext))
+                # logging.info("point.get_ext() %s", str(ext))
 
                 path.visualize()
 
@@ -526,7 +526,7 @@ class Scene(object):
 
                 point.end_of_path()
                 path.clear_visualization()
-                logging.info("done executing path")
+                # logging.info("done executing path")
 
                 if len(ext) > 0:
                     self._handle_extensions_strings(ext, do_record)

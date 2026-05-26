@@ -367,7 +367,7 @@ class Task(object):
     def _feasible(self, waypoints: List[Point]) -> Tuple[bool, int]:
         if isinstance(self.robot, UnimanualRobot):
             arm = self.robot.arm
-            logging.warn("single robot")
+            # logging.warn("single robot")
             return self._feasible_with_arm(arm, waypoints)
         elif isinstance(self.robot, BimanualRobot):
             way_points_right = [w for w in waypoints if isinstance(w._arm, PandaRight)]

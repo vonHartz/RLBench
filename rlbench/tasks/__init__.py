@@ -138,6 +138,10 @@ from rlbench.tasks.open_drawer_test_shape_small_body import OpenDrawerTestShapeS
 from rlbench.tasks.open_drawer_test_shape_square_handles import OpenDrawerTestShapeSquareHandles
 from rlbench.tasks.open_drawer_test_shape_large_handles import OpenDrawerTestShapeLargeHandles
 
+from rlbench.bimanual_tasks.bimanual_dual_push_buttons import BimanualDualPushButtons
+from rlbench.bimanual_tasks.bimanual_handover_item import BimanualHandoverItem
+from rlbench.bimanual_tasks.bimanual_handover_item_easy import BimanualHandoverItemEasy
+
 
 FS10_V1 = {
     'train': [

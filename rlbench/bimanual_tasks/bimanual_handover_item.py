@@ -9,9 +9,10 @@ from rlbench.backend.task import BimanualTask
 from rlbench.backend.spawn_boundary import SpawnBoundary
 from pyrep.objects.dummy import Dummy
 from rlbench.backend.exceptions import BoundaryError
-from absl import logging
 from pyrep.objects.object import Object
 from rlbench.backend.conditions import Condition
+
+import logging
 
 
 colors = [

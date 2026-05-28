@@ -100,3 +100,8 @@ class BimanualHandoverItem(BimanualTask):
 
     def base_rotation_bounds(self) -> Tuple[List[float], List[float]]:
         return [0, 0, - np.pi / 8], [0, 0, np.pi / 8]
+
+    def get_low_dim_state(self) -> np.ndarray:
+        shapes = self.items
+        states = [s.get_pose() for s in shapes]
+        return np.concatenate(states)

@@ -313,7 +313,9 @@ class BimanualDiscrete(Discrete):
                 left_grasped_objects = scene.robot.left_gripper.get_grasped_objects()
                 for g_obj in scene.task.get_graspable_objects():
                     if g_obj in left_grasped_objects:
-                        logging.warning("Object with name %s is already grasped by left robot", g_obj.get_name())
+                        logging.warning("Object with name %s is already grasped by left robot. Releasing it.", g_obj.get_name())
+                        scene.robot.left_gripper.release()
+                        scene.robot.right_gripper.grasp(g_obj)
                     else:
                         scene.robot.right_gripper.grasp(g_obj)
             else:
@@ -326,6 +328,8 @@ class BimanualDiscrete(Discrete):
                 for g_obj in scene.task.get_graspable_objects():
                     if g_obj in right_grasped_objects:
                         logging.warning("Object with name %s is already grasped by right robot", g_obj.get_name())
+                        scene.robot.right_gripper.release()
+                        scene.robot.left_gripper.grasp(g_obj)
                     else:
                         scene.robot.left_gripper.grasp(g_obj)
             else:

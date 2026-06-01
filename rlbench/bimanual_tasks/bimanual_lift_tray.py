@@ -70,3 +70,7 @@ class BimanualLiftTray(BimanualTask):
 
     def base_rotation_bounds(self) -> Tuple[List[float], List[float]]:
         return [0, 0, - np.pi / 8], [0, 0, np.pi / 8]
+    
+    def get_low_dim_state(self) -> np.ndarray:
+        object_poses = [self.item.get_pose(), self.tray.get_pose()]
+        return np.concatenate(object_poses)

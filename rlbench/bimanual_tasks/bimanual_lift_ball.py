@@ -48,3 +48,6 @@ class BimanualLiftBall(BimanualTask):
 
     def base_rotation_bounds(self) -> Tuple[List[float], List[float]]:
         return [0, 0, - np.pi / 8], [0, 0, np.pi / 8]
+
+    def get_low_dim_state(self) -> np.ndarray:
+        return self.ball.get_pose()

@@ -1,4 +1,6 @@
 from typing import List
+import numpy as np
+
 from pyrep.objects.shape import Shape
 from pyrep.objects.proximity_sensor import ProximitySensor
 from rlbench.backend.task import Task
@@ -43,3 +45,8 @@ class BimanualSweepToDustpan(BimanualTask):
     
     def is_static_workspace(self):
         return True
+
+    def get_low_dim_state(self) -> np.ndarray:
+        shapes = [Shape('broom'), Shape('Dustpan_4')]
+        states = [s.get_pose() for s in shapes]
+        return np.concatenate(states)

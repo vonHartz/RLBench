@@ -12,10 +12,10 @@ from rlbench.backend.spawn_boundary import SpawnBoundary
 class BimanualPutBottleInFridge(BimanualTask):
 
     def init_task(self) -> None:
-        bottle = Shape('bottle')
-        self.register_graspable_objects([bottle])
+        self.bottle = Shape('bottle')
+        self.register_graspable_objects([self.bottle])
         self.register_success_conditions(
-            [DetectedCondition(bottle, ProximitySensor('success')),
+            [DetectedCondition(self.bottle, ProximitySensor('success')),
              NothingGrasped(self.robot.right_gripper), NothingGrasped(self.robot.left_gripper)])
         
         self.waypoint_mapping = defaultdict(lambda: 'left')
@@ -30,7 +30,7 @@ class BimanualPutBottleInFridge(BimanualTask):
 
         s = Shape('fridge_root')
         s.set_position([ 0.05, -0.275,  0.752])
-        print(s.get_position())
+        # print(s.get_position())
 
         b = SpawnBoundary(self.spawn_boundaries)
         b.sample(Shape('bottle'), min_distance=0.1)
@@ -54,3 +54,8 @@ class BimanualPutBottleInFridge(BimanualTask):
     def base_rotation_bounds(self) -> Tuple[Tuple[float, float, float],
                                             Tuple[float, float, float]]:
         return (0.0, 0.0, -np.pi / 4), (0.0, 0.0, np.pi / 4)
+    
+    def get_low_dim_state(self) -> np.ndarray:
+        object_poses = [self.bottle.get_pose(), self.spawn_boundaries[0].get_pose()]
+
+        return np.concatenate(object_poses)

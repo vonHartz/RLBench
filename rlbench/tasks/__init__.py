@@ -140,6 +140,7 @@ from rlbench.tasks.open_drawer_test_shape_large_handles import OpenDrawerTestSha
 
 from rlbench.bimanual_tasks.bimanual_dual_push_buttons import BimanualDualPushButtons
 from rlbench.bimanual_tasks.bimanual_handover_item import BimanualHandoverItem
+from rlbench.bimanual_tasks.bimanual_handover_item_dynamic import BimanualHandoverItemDynamic
 from rlbench.bimanual_tasks.bimanual_handover_item_easy import BimanualHandoverItemEasy
 from rlbench.bimanual_tasks.bimanual_lift_ball import BimanualLiftBall
 from rlbench.bimanual_tasks.bimanual_lift_tray import BimanualLiftTray
@@ -147,6 +148,8 @@ from rlbench.bimanual_tasks.bimanual_straighten_rope import BimanualStraightenRo
 from rlbench.bimanual_tasks.bimanual_put_bottle_in_fridge import BimanualPutBottleInFridge
 from rlbench.bimanual_tasks.bimanual_put_item_in_drawer import BimanualPutItemInDrawer
 from rlbench.bimanual_tasks.bimanual_sweep_to_dustpan import BimanualSweepToDustpan
+from rlbench.bimanual_tasks.bimanual_pick_plate import BimanualPickPlate
+from rlbench.bimanual_tasks.bimanual_set_the_table import BimanualSetTheTable
 
 
 FS10_V1 = {

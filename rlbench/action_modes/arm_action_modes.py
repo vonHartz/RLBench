@@ -502,7 +502,9 @@ class EndEffectorPoseViaIK(ArmActionMode):
             raise ValueError(
                 "Expected frame to one of: 'world, 'end effector'")
 
-    def action(self, scene: Scene, action: np.ndarray):
+    def action(self, scene: Scene, action: np.ndarray, ignore_collisions: bool = True):
+        if ignore_collisions is False:
+            logging.warning("No collisions avoidance in IK action mode.")
         assert_action_shape(action, (7,))
         assert_unit_quaternion(action[3:])
         if not self._absolute_mode and self._frame != 'end effector':

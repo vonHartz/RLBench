@@ -193,10 +193,12 @@ class Scene(object):
     def kidnap(self, max_attempts: int = 20, verify_instance: bool = True):
         # Replace the task without resetting the robot
         while self._attempts < max_attempts:
+            self.task.init_episode(self._variation_index)
             try:
                 if not self.task.is_static_workspace():
                     self._place_task()
-                    if self.robot.arm.check_arm_collision():
+                    if self.robot.is_in_collision():
+                        logging.error("robot is in collision")
                         raise BoundaryError()
                 if verify_instance:
                     self.task.validate()
@@ -210,6 +212,10 @@ class Scene(object):
                         raise e
                 else:
                     break
+
+        # Let objects come to rest
+        [self.pyrep.step() for _ in range(STEPS_BEFORE_EPISODE_START)]
+        self._has_init_episode = True
 
     def _move_task_smoothly(self, source_pose: np.ndarray | None = None,
                             goal_pose: np.ndarray | None = None,

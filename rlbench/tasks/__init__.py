@@ -149,7 +149,6 @@ from rlbench.bimanual_tasks.bimanual_put_bottle_in_fridge import BimanualPutBott
 from rlbench.bimanual_tasks.bimanual_put_item_in_drawer import BimanualPutItemInDrawer
 from rlbench.bimanual_tasks.bimanual_sweep_to_dustpan import BimanualSweepToDustpan
 from rlbench.bimanual_tasks.bimanual_pick_plate import BimanualPickPlate
-from rlbench.bimanual_tasks.bimanual_set_the_table import BimanualSetTheTable
 
 
 FS10_V1 = {

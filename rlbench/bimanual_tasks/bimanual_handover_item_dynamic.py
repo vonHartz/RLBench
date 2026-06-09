@@ -87,29 +87,40 @@ class BimanualHandoverItemDynamic(BimanualTask):
              LiftedCondition(self.items[0], 0.8)])
 
         w0 = Dummy('waypoint0')
+        w3 = Dummy('waypoint3')
         w4 = Dummy('waypoint4')
+        w5 = Dummy('waypoint5')
+        w6 = Dummy('waypoint6')
 
         x0, y0, z0 = w0.get_position()
+        x3, y3, z3 = w3.get_position()
         x4, y4, z4 = w4.get_position()
+        x5, y5, z5 = w5.get_position()
+        x6, y6, z6 = w6.get_position()
 
-        # rand_offset = np.random.uniform(-0.02, 0.02, size=3)
+        rand_offset = np.random.uniform(-0.02, 0.02, size=1)
         # sample random offset from a GMM with six components. Each component is offset
         # by 2cm in a different direction (positive and negative x, y, z)
-        component_offset = 0.04
-        component_spread = 0.005
-        component_means = np.array([[component_offset, 0, 0],
-                                    [-component_offset, 0, 0],
-                                    [0, component_offset, 0],
-                                    [0, -component_offset, 0],
-                                    [0, 0, component_offset],
-                                    [0, 0, -component_offset]])
-        component_cov = np.eye(3) * component_spread**2
-        component_weights = np.ones(len(component_means)) / len(component_means)
-        component = np.random.choice(len(component_means), p=component_weights)
-        rand_offset = np.random.multivariate_normal(component_means[component], component_cov)
+        # component_offset = 0.04
+        # component_spread = 0.005
+        # component_means = np.array([[component_offset, 0, 0],
+        #                             [-component_offset, 0, 0],
+        #                             [0, component_offset, 0],
+        #                             [0, -component_offset, 0],
+        #                             [0, 0, component_offset],
+        #                             [0, 0, -component_offset]])
+        # component_cov = np.eye(3) * component_spread**2
+        # component_weights = np.ones(len(component_means)) / len(component_means)
+        # component = np.random.choice(len(component_means), p=component_weights)
+        # rand_offset = np.random.multivariate_normal(component_means[component], component_cov)
 
-        w0.set_position([x0 + rand_offset[0], y0 + rand_offset[1], z0 + rand_offset[2]])
-        w4.set_position([x4 + rand_offset[0], y4 + rand_offset[1], z4 + rand_offset[2]])
+        # w0.set_position([x0 + rand_offset[0], y0 + rand_offset[1], z0 + rand_offset[2]])
+        # w4.set_position([x4 + rand_offset[0], y4 + rand_offset[1], z4 + rand_offset[2]])
+        w0.set_position([x0, y0, z0 + rand_offset[0]])
+        w3.set_position([x3, y3, z3 + rand_offset[0]])
+        w4.set_position([x4, y4, z4 + rand_offset[0]])
+        w5.set_position([x5, y5, z5 + rand_offset[0]])
+        w6.set_position([x6, y6, z6 + rand_offset[0]])
 
 
         return [f'bring me the {color_name} item',

@@ -150,7 +150,7 @@ from rlbench.bimanual_tasks.bimanual_put_item_in_drawer import BimanualPutItemIn
 from rlbench.bimanual_tasks.bimanual_sweep_to_dustpan import BimanualSweepToDustpan
 from rlbench.bimanual_tasks.bimanual_pick_plate import BimanualPickPlate
 from rlbench.bimanual_tasks.bimanual_set_the_table import BimanualSetTheTable
-
+from rlbench.bimanual_tasks.bimanual_push_box import BimanualPushBox
 
 FS10_V1 = {
     'train': [

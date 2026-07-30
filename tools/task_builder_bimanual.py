@@ -14,8 +14,8 @@ sys.path.insert(0, join(CURRENT_DIR, '..'))  # Use local RLBench rather than ins
 import traceback
 import readline
 
-import rich_click as click
-from click_prompt import auto_complete_argument
+# import rich_click as click
+# from click_prompt import auto_complete_argument
 
 from pyrep.const import RenderMode
 
@@ -37,13 +37,15 @@ from tools.task_validator import task_smoke, TaskValidationError
 import shutil
 
 
-from yarr.utils.video_utils import CircleCameraMotion
-from yarr.utils.video_utils import TaskRecorder
+# from yarr.utils.video_utils import CircleCameraMotion
+# from yarr.utils.video_utils import TaskRecorder
+TaskRecorder= None
+CircleCameraMotion = None
 
 from pyrep.objects.dummy import Dummy
 from pyrep.objects.vision_sensor import VisionSensor
 
-from rich.logging import RichHandler
+# from rich.logging import RichHandler
 
 
 CURRENT_DIR = dirname(abspath(__file__))
@@ -342,7 +344,7 @@ if __name__ == '__main__':
 
 
 
-    logging.basicConfig(level=logging.DEBUG, handlers=[RichHandler()])
+    # logging.basicConfig(level=logging.DEBUG, handlers=[RichHandler()])
 
 
     setup_list_completer()

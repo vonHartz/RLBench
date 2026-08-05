@@ -24,17 +24,18 @@ class MoveBlockAroundObstacles(Task):
         self.drop_sensor = ProximitySensor('drop_zone_sensor')
 
         self.register_graspable_objects([self.block])
-
         self.register_success_conditions([
             DetectedCondition(
                 self.block,
                 self.drop_sensor
             ),
             NothingGrasped(self.robot.gripper),
-            BottlesUprightCondition(self.wine_bottle_obstacles),
         ])
 
     def init_episode(self, index: int) -> List[str]:
+        self.register_fail_conditions([
+            BottlesUprightCondition(self.wine_bottle_obstacles)
+        ])
         return [
             'move the block around the obstacles',
             'transport the cube through the obstacle course',
@@ -46,7 +47,6 @@ class MoveBlockAroundObstacles(Task):
 
     def base_rotation_bounds(self) -> Tuple[List[float], List[float]]:
         max_rot = np.deg2rad(MAX_ROTATION)
-
         return [0, 0, -max_rot], [0, 0, max_rot]
 
     def get_low_dim_state(self) -> np.ndarray:

@@ -26,6 +26,7 @@ from rlbench.tasks.light_bulb_in import LightBulbIn
 from rlbench.tasks.light_bulb_out import LightBulbOut
 from rlbench.tasks.meat_off_grill import MeatOffGrill
 from rlbench.tasks.meat_on_grill import MeatOnGrill
+from rlbench.tasks.move_block_around_obstacles import MoveBlockAroundObstacles
 from rlbench.tasks.move_hanger import MoveHanger
 from rlbench.tasks.open_box import OpenBox
 from rlbench.tasks.open_door import OpenDoor

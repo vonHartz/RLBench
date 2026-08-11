@@ -50,7 +50,11 @@ class MoveArmThenGripper(ActionMode):
         # else:
         #     self.arm_action_mode.action(scene, arm_action)
         
-        ignore_collisions = bool(action[arm_act_size+1:arm_act_size+2])
+        if arm_act_size == len(action) - 1:
+            ignore_collisions = True
+        else:
+            ignore_collisions = bool(action[arm_act_size+1:arm_act_size+2])
+
         self.arm_action_mode.action(scene, arm_action, ignore_collisions)
         self.gripper_action_mode.action(scene, ee_action)
 

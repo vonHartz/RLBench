@@ -261,6 +261,7 @@ class Scene(object):
 
             goal_object_poses = self._get_task_object_poses()
 
+        assert total_steps > 0, "total_steps must be greater than 0. Use teleport() for instantaneously movement."
         alpha = min(current_step / total_steps, 1.0)
 
         # Interpolate the task root in world coordinates.

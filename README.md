@@ -1,14 +1,97 @@
+# DynaBench: Dynamic Evaluation Protocol for RLBench
+
+DynaBench is built on [RLBench](https://github.com/stepjam/RLBench).
+It also includes the bimanual tasks from [RLBench2](https://github.com/markusgrotz/rlbench/), as well as bug fixes from [PerAct](https://github.com/MohitShridhar/RLBench/tree/peract).
+
+Please find the readme for RLBench below for details on installation etc.
+
+## Scene Dynamics
+DynaBench implements two types of scene dynamics: teleportation and linear interpolation.
+Teleportation samples a new (valid) task instance and teleports all scene objects into the new configuration.
+Linear interpolation also samples a new instance but then moves the object to their new poses over a predefined number of time steps.
+
+By interpolating two arbitrary valid task instances, DynaBench randomizes both speed and movement direction of the task objects.
+Movement speed is controlled by the number of time steps (default=10), but interacts with the dispersion of the object poses across task instances.
+For example, for PlaceCups, the scene objects move with speeds between 0 m/s and 1.4 m/s. (By default, RLBench is controlled at 20 Hz.)
+
+Most tasks require more than 50 steps to establish object contact.
+# TODO: define movement point defaults per task in task object?
+
+### Usage Example
+
+```python
+from dataclasses import dataclass
+from loguru import logger
+
+from rlbench.environment import Environment
+from rlbench.action_modes.action_mode import MoveArmThenGripper
+from rlbench.action_modes.arm_action_modes import EndEffectorPoseViaIK
+from rlbench.action_modes.gripper_action_modes import Discrete
+from rlbench.tasks import OpenMicrowave
+from rlbench.task_environment import TaskEnvironment
+
+
+@dataclass
+class Dynamics:
+    teleport_at_t: int | None = None
+    smooth_move_at_t: int | None = None
+    smooth_move_duration: int = 10
+
+
+def apply_scene_dynamics(task_env: TaskEnvironment, step_no: int, dynamics: Dynamics):
+    if (
+        dynamics.smooth_move_at_t is not None
+        and step_no >= dynamics.smooth_move_at_t + dynamics.smooth_move_duration
+    ):
+        pass
+    elif dynamics.smooth_move_at_t is not None and step_no > dynamics.smooth_move_at_t:
+        logger.info(
+            "Applying smooth move dynamics for {} steps.",
+            dynamics.smooth_move_duration,
+        )
+        task_env._scene.move_task_smoothly(
+            total_steps=dynamics.smooth_move_duration
+        )
+
+    if dynamics.teleport_at_t is not None and step_no == dynamics.teleport_at_t:
+        logger.info("Applying teleportation dynamics.")
+        task_env._scene.teleport()
+
+action_mode = MoveArmThenGripper(
+  arm_action_mode=EndEffectorPoseViaIK(
+    absolute_mode=False,
+    frame="world",
+    ),
+  gripper_action_mode=Discrete(),
+)
+env = Environment(action_mode)
+env.launch()
+task_env = env.get_task(OpenMicrowave)
+_, obs = task_env.reset()
+
+policy = ...
+
+dynamics = Dynamics(teleport_at_t=5)
+
+step_no = 0
+while True:
+  action = policy.predict(obs)
+  apply_scene_dynamics(task_env, step_no, dynamics)
+  next_obs, reward, done = task_env.step(action)
+
+  if done:
+    break
+
+  obs = next_obs
+```
+
+## Bimanual Tasks
+For bimanual manipulation, import a bimanual task (e.g. `from rlbench.bimanual_tasks import BimanualHandoverItem`) and pass `robot_setup=dual_panda` upon environment initialization.
+
+
 # RLBench: Robot Learning Benchmark [![Unit Tests](https://github.com/stepjam/RLBench/workflows/Unit%20Tests/badge.svg)](https://github.com/stepjam/RLBench/actions) [![Task Tests](https://github.com/stepjam/RLBench/workflows/Task%20Tests/badge.svg)](https://github.com/stepjam/RLBench/actions) [![Discord](https://img.shields.io/discord/694945190867370155.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/DXPCjmd)
 
 ![task grid image missing](readme_files/task_grid.png)
-
-## Modifications
- This is my fork of RLBench. Modifications include:
-- 6 new tasks, bug fixes, and extensions of existing tasks. See Appendix A in the [paper](https://peract.github.io/) for details.
-- Data generation also records if `ignore_collisions` was used with a waypoint for motion-planning. 
-- `data_generator.py` supports an "all_variations" setting that samples from all possible task variations. 
-
-I branched off `master` in Feb 2022, so this fork is not up to date with the latest changes in the official repo.
 
 ## RLBench
 
@@ -393,4 +476,24 @@ thingiverse.com, and cadnav.com.
   journal={IEEE Robotics and Automation Letters},
   year={2020}
 }
+
+@inproceedings{grotz2024peract2,
+  title={Peract2: Benchmarking and learning for robotic bimanual manipulation tasks},
+  author={Grotz, Markus and Shridhar, Mohit and Chao, Yu-Wei and Asfour, Tamim and Fox, Dieter},
+  booktitle={CoRL 2024 Workshop on Whole-body Control and Bimanual Manipulation: Applications in Humanoids and Beyond},
+  year={2024}
+}
+
+@inproceedings{shridhar2022peract,
+  title     = {Perceiver-Actor: A Multi-Task Transformer for Robotic Manipulation}, 
+  author    = {Shridhar, Mohit and Manuelli, Lucas and Fox, Dieter},
+  booktitle = {Proceedings of the 6th Conference on Robot Learning (CoRL)},
+  year      = {2022},
+}
+
+@inproceedings{anonymous2026,
+  title     = {One Hand Watches The Other: Dynamic Multi-Agent Bimanual Control for Sample-Efficient Manipulation in Dynamic Environments}, 
+  author    = {Anonymous Authors},
+}
+
 ```

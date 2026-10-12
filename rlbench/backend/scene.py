@@ -189,8 +189,24 @@ class Scene(object):
         [self.pyrep.step() for _ in range(STEPS_BEFORE_EPISODE_START)]
         self._has_init_episode = True
         return descriptions
-    
-    def kidnap(self, max_attempts: int = 20, verify_instance: bool = True):
+
+    def _get_task_object_poses(self):
+        """Get poses of task objects relative to boundary_root."""
+        root = self.task.boundary_root()
+
+        objects = root.get_objects_in_tree()
+
+        # Exclude the root itself: its pose is interpolated separately.
+        objects = [obj for obj in objects if obj.get_handle() != root.get_handle()]
+
+        poses = [
+            (obj, np.asarray(obj.get_pose(relative_to=root)))
+            for obj in objects
+        ]
+
+        return poses
+
+    def teleport(self, max_attempts: int = 20, verify_instance: bool = True):
         # Replace the task without resetting the robot
         while self._attempts < max_attempts:
             self.task.init_episode(self._variation_index)
@@ -217,41 +233,104 @@ class Scene(object):
         [self.pyrep.step() for _ in range(STEPS_BEFORE_EPISODE_START)]
         self._has_init_episode = True
 
-    def _move_task_smoothly(self, source_pose: np.ndarray | None = None,
-                            goal_pose: np.ndarray | None = None,
-                            current_step: int = 0, total_steps: int = 10,
-                            max_attempts: int = 5,
-                            verify_instance: bool = True
-                            ) -> tuple[np.ndarray, np.ndarray, int]:
-        # Like kidnap but moves the task smoothly over time to the new location instead of teleporting it
-        root_object = self.task.boundary_root()
+    def _move_task_smoothly(
+            self,
+            source_pose=None,
+            goal_pose=None,
+            source_object_poses=None,
+            goal_object_poses=None,
+            current_step=0,
+            total_steps=10,
+            max_attempts=5,
+            verify_instance=True):
+
+        root = self.task.boundary_root()
 
         if goal_pose is None:
-            source_pose = root_object.get_pose()
-            self.kidnap(max_attempts=max_attempts, verify_instance=verify_instance)
-            goal_pose = root_object.get_pose()
+            source_pose = root.get_pose()
 
-        interp_pose = interpolate_pose(source_pose, goal_pose, current_step / total_steps)
-        root_object.set_pose(interp_pose)
+            source_object_poses = self._get_task_object_poses()
+
+            # Generate the destination task instance.
+            self.teleport(
+                max_attempts=max_attempts,
+                verify_instance=verify_instance
+            )
+
+            goal_pose = root.get_pose()
+
+            goal_object_poses = self._get_task_object_poses()
+
+        alpha = min(current_step / total_steps, 1.0)
+
+        # Interpolate the task root in world coordinates.
+        interp_pose = interpolate_pose(
+            source_pose,
+            goal_pose,
+            alpha
+        )
+        root.set_pose(interp_pose)
+
+        # Interpolate each task object's pose relative to the root.
+        goal_poses_by_handle = {
+            obj.get_handle(): pose
+            for obj, pose in goal_object_poses
+        }
+
+        for obj, source_obj_pose in source_object_poses:
+            handle = obj.get_handle()
+
+            if handle not in goal_poses_by_handle:
+                continue
+
+            goal_obj_pose = goal_poses_by_handle[handle]
+
+            interp_obj_pose = interpolate_pose(
+                source_obj_pose,
+                goal_obj_pose,
+                alpha
+            )
+
+            obj.set_pose(interp_obj_pose, relative_to=root)
 
         current_step += 1
 
-        return source_pose, goal_pose, current_step
+        return (
+            source_pose,
+            goal_pose,
+            source_object_poses,
+            goal_object_poses,
+            current_step
+        )
     
-    def move_task_smoothly(self, total_steps: int = 10, max_attempts: int = 20,
-                           verify_instance: bool = True) -> bool:
+    def move_task_smoothly(
+            self,
+            total_steps=10,
+            max_attempts=20,
+            verify_instance=True):
+
         if self._move_task_smoothly_state is None:
             self._move_task_smoothly_state = {
-                    'source_pose': None,
-                    'goal_pose': None,
-                    'current_step': 0
-                }
-        
+                'source_pose': None,
+                'goal_pose': None,
+                'source_object_poses': None,
+                'goal_object_poses': None,
+                'current_step': 0,
+            }
+
         state = self._move_task_smoothly_state
-        
-        source_pose, goal_pose, current_step = self._move_task_smoothly(
+
+        (
+            source_pose,
+            goal_pose,
+            source_object_poses,
+            goal_object_poses,
+            current_step
+        ) = self._move_task_smoothly(
             source_pose=state['source_pose'],
             goal_pose=state['goal_pose'],
+            source_object_poses=state['source_object_poses'],
+            goal_object_poses=state['goal_object_poses'],
             current_step=state['current_step'],
             total_steps=total_steps,
             max_attempts=max_attempts,
@@ -260,16 +339,12 @@ class Scene(object):
 
         state['source_pose'] = source_pose
         state['goal_pose'] = goal_pose
+        state['source_object_poses'] = source_object_poses
+        state['goal_object_poses'] = goal_object_poses
         state['current_step'] = current_step
 
-        if current_step >= total_steps:
-            del self._move_task_smoothly_state
-
-            return True
-        else:
-            self._move_task_smoothly_state = state
-            return False
-
+        # Return whether the transition is complete.
+        return current_step > total_steps
 
     def reset(self) -> None:
         """Resets the joint angles. """

@@ -106,7 +106,11 @@ class Scene(object):
             self._execute_demo_joint_position_action = None
 
         # self._task_offset: np.ndarray | None = None
+
+        # DynaBench dynamic scenario state
         self._move_task_smoothly_state = None
+        self._source_layout = None
+        self._target_layout = None
 
     def load(self, task: Task) -> None:
         """Loads the task and positions at the centre of the workspace.
@@ -147,25 +151,60 @@ class Scene(object):
         self._has_init_task = True
         self._variation_index = 0
 
-    def init_episode(self, index: int, randomly_place: bool=True,
-                     max_attempts: int = 5, place_demo: bool = False,
-                     verify_instance: bool = True) -> List[str]:
-        """Calls the task init_episode and puts randomly in the workspace.
-        """
+    def init_episode(
+            self,
+            index: int,
+            randomly_place: bool = True,
+            max_attempts: int = 5,
+            place_demo: bool = False,
+            verify_instance: bool = True) -> List[str]:
 
         self._variation_index = index
-
         self._move_task_smoothly_state = None
+
+        self._source_layout = None
+        self._target_layout = None
 
         if not self._has_init_task:
             self.init_task()
 
-        return self._create_new_scene_layout(
+        is_static = not (
+            randomly_place and not self.task.is_static_workspace()
+        )
+
+        descriptions = self._create_new_scene_layout(
             max_attempts=max_attempts,
             verify_instance=verify_instance,
             variation_index=index,
-            is_static=not (randomly_place and not self.task.is_static_workspace())
+            is_static=is_static
         )
+
+        self._source_layout = self._capture_layout()
+
+        try:
+            self.task.cleanup_()
+            self.task.restore_state(self._initial_task_state)
+
+            self._create_new_scene_layout(
+                max_attempts=max_attempts,
+                verify_instance=verify_instance,
+                variation_index=index,
+                is_static=is_static
+            )
+
+            self._target_layout = self._capture_layout()
+
+        except Exception:
+            self._apply_layout(self._source_layout, skip_grasped=False)
+
+            self._target_layout = None
+            raise
+
+        self._apply_layout(self._source_layout, skip_grasped=False)
+
+        self._has_init_episode = True
+
+        return descriptions
 
     def _get_task_object_poses(self):
         """Get poses of task objects relative to boundary_root."""
@@ -183,13 +222,58 @@ class Scene(object):
 
         return poses
 
+    def _capture_layout(self):
+        """Capture the task root pose and task object poses relative to it."""
+        root = self.task.boundary_root()
+        root_handle = root.get_handle()
+
+        object_poses = {}
+
+        for obj in root.get_objects_in_tree():
+            handle = obj.get_handle()
+
+            # The root pose is stored separately.
+            if handle == root_handle:
+                continue
+
+            object_poses[handle] = (
+                obj,
+                np.asarray(obj.get_pose(relative_to=root)).copy()
+            )
+
+        return {
+            'root_pose': np.asarray(root.get_pose()).copy(),
+            'object_poses': object_poses,
+        }
+
+
+    def _apply_layout(self, layout, skip_grasped=True):
+        """Apply a cached layout without creating a new task instance."""
+        root = self.task.boundary_root()
+
+        grasped_handles = set()
+        if skip_grasped:
+            grasped_handles = {
+                obj.get_handle() for obj in self.get_grasped_objects()
+            }
+
+        # Move the root first.
+        root.set_pose(layout['root_pose'])
+
+        # Restore the positions of task objects relative to the root.
+        for handle, (obj, pose) in layout['object_poses'].items():
+            if skip_grasped and handle in grasped_handles:
+                continue
+
+            obj.set_pose(pose, relative_to=root)
+
     def _create_new_scene_layout(self, max_attempts: int = 20, verify_instance: bool = True, variation_index: int = None, is_static: bool = False):
         # Try a few times to init and place in the workspace
         self._attempts = 0
         descriptions = None
 
         while self._attempts < max_attempts:
-            self.task.init_episode(variation_index)
+            descriptions = self.task.init_episode(variation_index)
             try:
                 if not is_static:
                     self._place_task()
@@ -214,14 +298,19 @@ class Scene(object):
         self._has_init_episode = True
         return descriptions
 
-    def teleport(self, max_attempts: int = 20, verify_instance: bool = True):
-        # Replace the task without resetting the robot
-        self._create_new_scene_layout(
-            max_attempts=max_attempts,
-            verify_instance=verify_instance,
-            variation_index=self._variation_index,
-            is_static=self.task.is_static_workspace()
-        )
+    def teleport(self):
+
+        if self._target_layout is None:
+            raise RuntimeError(
+                "No destination layout is cached. "
+                "Call init_episode() before teleporting."
+            )
+
+        self._apply_layout(self._target_layout, skip_grasped=True)
+
+        # Allow the simulator to settle after the teleport.
+        for _ in range(STEPS_BEFORE_EPISODE_START):
+            self.pyrep.step()
 
     def _move_task_smoothly(
             self,
@@ -232,54 +321,59 @@ class Scene(object):
             current_step=0,
             total_steps=10,
             max_attempts=5,
-            verify_instance=True):
+            verify_instance=True
+        ):
+
+        if self._source_layout is None or self._target_layout is None:
+            raise RuntimeError(
+                "Source and destination layouts must be initialized "
+                "by init_episode() before smooth movement."
+            )
+
+        if total_steps <= 0:
+            raise ValueError(
+                "total_steps must be greater than 0. "
+                "Use teleport() for instantaneous movement."
+            )
 
         root = self.task.boundary_root()
 
-        if goal_pose is None:
-            source_pose = root.get_pose()
+        if source_pose is None:
+            source_pose = np.asarray(root.get_pose()).copy()
 
-            source_object_poses = self._get_task_object_poses()
+            source_object_poses = {
+                handle: pose.copy()
+                for handle, (_, pose)
+                in self._source_layout['object_poses'].items()
+            }
 
-            # Generate the destination task instance.
-            self.teleport(
-                max_attempts=max_attempts,
-                verify_instance=verify_instance
-            )
+            goal_pose = self._target_layout['root_pose'].copy()
 
-            goal_pose = root.get_pose()
+            goal_object_poses = {
+                handle: pose.copy()
+                for handle, (_, pose)
+                in self._target_layout['object_poses'].items()
+            }
 
-            goal_object_poses = self._get_task_object_poses()
-
-        assert total_steps > 0, "total_steps must be greater than 0. Use teleport() for instantaneously movement."
         alpha = min(current_step / total_steps, 1.0)
 
-        # Interpolate the task root in world coordinates.
-        interp_pose = interpolate_pose(
-            source_pose,
-            goal_pose,
-            alpha
-        )
+        interp_pose = interpolate_pose(source_pose, goal_pose, alpha)
         root.set_pose(interp_pose)
 
-        # Interpolate each task object's pose relative to the root.
-        goal_poses_by_handle = {
-            obj.get_handle(): pose
-            for obj, pose in goal_object_poses
+        grasped_handles = {
+            obj.get_handle() for obj in self.get_grasped_objects()
         }
 
-        grasped_objects = self.robot.gripper.get_grasped_objects()
+        for handle, (obj, _) in self._source_layout['object_poses'].items():
 
-        for obj, source_obj_pose in source_object_poses:
-            handle = obj.get_handle()
-
-            if handle not in goal_poses_by_handle:
+            if handle in grasped_handles:
                 continue
 
-            if obj in grasped_objects:
+            if handle not in goal_object_poses:
                 continue
 
-            goal_obj_pose = goal_poses_by_handle[handle]
+            source_obj_pose = source_object_poses[handle]
+            goal_obj_pose = goal_object_poses[handle]
 
             interp_obj_pose = interpolate_pose(
                 source_obj_pose,
@@ -341,6 +435,12 @@ class Scene(object):
 
         # Return whether the transition is complete.
         return current_step > total_steps
+
+    def get_grasped_objects(self) -> List[Shape]:
+        if self.robot.is_bimanual:
+            return self.robot.right_gripper.get_grasped_objects() + self.robot.left_gripper.get_grasped_objects()
+        else:
+            return self.robot.gripper.get_grasped_objects()
 
     def reset(self) -> None:
         """Resets the joint angles. """

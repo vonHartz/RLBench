@@ -16,6 +16,11 @@ By interpolating two arbitrary valid task instances, DynaBench randomizes both s
 Movement speed is controlled by the number of time steps (default=10), but interacts with the dispersion of the object poses across task instances.
 For example, for PlaceCups, the scene objects move with speeds between 0 m/s and 1.4 m/s. (By default, RLBench is controlled at 20 Hz.)
 
+## Arm Disturbances
+We also include the option to disturb an arm during task execution by adding an offset to the predicted end-effector pose that ramps up over a specified time horizon and then stays at that offset level.
+
+Both scene dynamics and arm disturbance are easiest to evaluate using our predefined scenarios.
+
 ## Scenarios
 We predefine dynamic scenarios in `rlbench/dynabench/scenario.py`.
 If set on a `task_env`, a dynamics scenario is automatically executed in sync with calls to `task_env.step` using a ScenarioRunner from `rlbench/dynabench/runner.py`.
@@ -39,7 +44,12 @@ action_mode = MoveArmThenGripper(
 env = Environment(action_mode)
 env.launch()
 task_env = env.get_task(OpenMicrowave)
+
+# Smooth scene dynamics scenario
 task_env.set_scenario("single_smooth_move_scenario_early")
+
+# Arm disturbance scenario
+# task_env.set_scenario("right_arm_disturbance_t100")
 
 _, obs = task_env.reset()
 
@@ -128,7 +138,7 @@ while True:
 ## Bimanual Tasks
 For bimanual manipulation, import a bimanual task (e.g. `from rlbench.bimanual_tasks import BimanualHandoverItem`) and pass `robot_setup=dual_panda` upon environment initialization.
 
-Environment dynamics can be applied identical to the unimanual tasks.
+Environment dynamics and arm disturbance can be applied identical to the unimanual tasks.
 
 
 # RLBench: Robot Learning Benchmark [![Unit Tests](https://github.com/stepjam/RLBench/workflows/Unit%20Tests/badge.svg)](https://github.com/stepjam/RLBench/actions) [![Task Tests](https://github.com/stepjam/RLBench/workflows/Task%20Tests/badge.svg)](https://github.com/stepjam/RLBench/actions) [![Discord](https://img.shields.io/discord/694945190867370155.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/DXPCjmd)

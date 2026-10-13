@@ -1,5 +1,6 @@
 from typing import List, Callable
 
+import itertools
 import numpy as np
 from pyrep import PyRep
 from pyrep.const import ObjectType
@@ -424,6 +425,7 @@ class Scene(object):
         )
         root.set_pose(interp_pose)
 
+        moved_objects = []
         for handle, object_state in self._source_layout.objects.items():
 
             if handle in protected_handles:
@@ -446,6 +448,13 @@ class Scene(object):
                 relative_to=root
             )
 
+            moved_objects.append(object_state.obj)
+
+        collisions = self._find_moving_object_collisions(moved_objects)
+
+        for obj_a, obj_b in collisions:
+            self._resolve_object_collision(obj_a, obj_b)
+
         for obj in grasped_objects:
             obj.set_pose(held_world_poses[obj.get_handle()])
 
@@ -459,13 +468,11 @@ class Scene(object):
             current_step
         )
 
-    def _resolve_cup_collision(self, cup_a, cup_b, separation=0.01):
-        if not cup_a.check_collision(cup_b):
-            return
+    def _resolve_object_collision(self, obj_a, obj_b, separation=0.001):
+        pos_a = np.asarray(obj_a.get_position(), dtype=float)
+        pos_b = np.asarray(obj_b.get_position(), dtype=float)
 
-        pos_a = np.asarray(cup_a.get_position())
-        pos_b = np.asarray(cup_b.get_position())
-
+        # Separate horizontally, since task objects are typically on a table.
         direction = pos_a[:2] - pos_b[:2]
         distance = np.linalg.norm(direction)
 
@@ -475,16 +482,34 @@ class Scene(object):
             direction /= distance
 
         correction = np.array([
-            direction[0] * separation / 2,
-            direction[1] * separation / 2,
+            direction[0] * separation / 2.0,
+            direction[1] * separation / 2.0,
             0.0,
         ])
 
         pos_a[:3] += correction
         pos_b[:3] -= correction
 
-        cup_a.set_position(pos_a)
-        cup_b.set_position(pos_b)
+        obj_a.set_position(pos_a)
+        obj_b.set_position(pos_b)
+
+    def _are_objects_linked(self, obj_a, obj_b):
+        return (
+            obj_b.get_handle() in self._get_related_handles(obj_a)
+            or obj_a.get_handle() in self._get_related_handles(obj_b)
+        )
+
+    def _find_moving_object_collisions(self, moved_objects):
+        collisions = []
+
+        for obj_a, obj_b in itertools.combinations(moved_objects, 2):
+            if self._are_objects_linked(obj_a, obj_b):
+                continue
+
+            if obj_a.check_collision(obj_b):
+                collisions.append((obj_a, obj_b))
+
+        return collisions
 
     def move_task_smoothly(self, total_steps=10):
 
@@ -513,11 +538,6 @@ class Scene(object):
             current_step=state['current_step'],
             total_steps=total_steps,
         )
-
-        self._resolve_cup_collision(
-            self.task._cups[0], self.task._cups[1], separation=0.03)
-        self._resolve_cup_collision(
-            self.task._cups[0], self.task._cups[2], separation=0.03)
 
         state['source_pose'] = source_pose
         state['goal_pose'] = goal_pose

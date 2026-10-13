@@ -458,7 +458,34 @@ class Scene(object):
             goal_object_poses,
             current_step
         )
-    
+
+    def _resolve_cup_collision(self, cup_a, cup_b, separation=0.01):
+        if not cup_a.check_collision(cup_b):
+            return
+
+        pos_a = np.asarray(cup_a.get_position())
+        pos_b = np.asarray(cup_b.get_position())
+
+        direction = pos_a[:2] - pos_b[:2]
+        distance = np.linalg.norm(direction)
+
+        if distance < 1e-6:
+            direction = np.array([1.0, 0.0])
+        else:
+            direction /= distance
+
+        correction = np.array([
+            direction[0] * separation / 2,
+            direction[1] * separation / 2,
+            0.0,
+        ])
+
+        pos_a[:3] += correction
+        pos_b[:3] -= correction
+
+        cup_a.set_position(pos_a)
+        cup_b.set_position(pos_b)
+
     def move_task_smoothly(self, total_steps=10):
 
         if self._move_task_smoothly_state is None:
@@ -486,6 +513,11 @@ class Scene(object):
             current_step=state['current_step'],
             total_steps=total_steps,
         )
+
+        self._resolve_cup_collision(
+            self.task._cups[0], self.task._cups[1], separation=0.03)
+        self._resolve_cup_collision(
+            self.task._cups[0], self.task._cups[2], separation=0.03)
 
         state['source_pose'] = source_pose
         state['goal_pose'] = goal_pose

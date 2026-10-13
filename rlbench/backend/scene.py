@@ -27,6 +27,7 @@ from rlbench.backend.utils import rgb_handles_to_mask
 from rlbench.demo import Demo
 from rlbench.noise_model import NoiseModel
 from rlbench.observation_config import ObservationConfig, CameraConfig
+from rlbench.dynabench.dynamic_configuration import DynamicConfiguration, DynamicObjectState
 from rlbench.utils import interpolate_pose
 
 STEPS_BEFORE_EPISODE_START = 10
@@ -222,50 +223,58 @@ class Scene(object):
 
         return poses
 
-    def _capture_layout(self):
-        """Capture the task root pose and task object poses relative to it."""
+    def _capture_layout(self) -> DynamicConfiguration:
         root = self.task.boundary_root()
         root_handle = root.get_handle()
 
-        object_poses = {}
+        objects = {}
 
         for obj in root.get_objects_in_tree():
             handle = obj.get_handle()
 
-            # The root pose is stored separately.
             if handle == root_handle:
                 continue
 
-            object_poses[handle] = (
-                obj,
-                np.asarray(obj.get_pose(relative_to=root)).copy()
+            objects[handle] = DynamicObjectState(
+                handle=handle,
+                obj=obj,
+                relative_pose=np.asarray(
+                    obj.get_pose(relative_to=root)
+                ).copy(),
+                world_pose=np.asarray(obj.get_pose()).copy(),
             )
 
-        return {
-            'root_pose': np.asarray(root.get_pose()).copy(),
-            'object_poses': object_poses,
-        }
+        return DynamicConfiguration(
+            root_pose=np.asarray(root.get_pose()).copy(),
+            objects=objects,
+        )
 
 
-    def _apply_layout(self, layout, skip_grasped=True):
-        """Apply a cached layout without creating a new task instance."""
+    def _apply_layout(
+        self,
+        configuration: DynamicConfiguration,
+        skip_grasped: bool = True
+        ) -> None:
+
         root = self.task.boundary_root()
 
         grasped_handles = set()
         if skip_grasped:
             grasped_handles = {
-                obj.get_handle() for obj in self.get_grasped_objects()
+                obj.get_handle()
+                for obj in self.get_grasped_objects()
             }
 
-        # Move the root first.
-        root.set_pose(layout['root_pose'])
+        root.set_pose(configuration.root_pose)
 
-        # Restore the positions of task objects relative to the root.
-        for handle, (obj, pose) in layout['object_poses'].items():
-            if skip_grasped and handle in grasped_handles:
+        for handle, object_state in configuration.objects.items():
+            if handle in grasped_handles:
                 continue
 
-            obj.set_pose(pose, relative_to=root)
+            object_state.obj.set_pose(
+                object_state.relative_pose,
+                relative_to=root
+            )
 
     def _create_new_scene_layout(self, max_attempts: int = 20, verify_instance: bool = True, variation_index: int = None, is_static: bool = False):
         # Try a few times to init and place in the workspace

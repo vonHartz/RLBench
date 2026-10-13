@@ -160,35 +160,12 @@ class Scene(object):
         if not self._has_init_task:
             self.init_task()
 
-        # Try a few times to init and place in the workspace
-        self._attempts = 0
-        descriptions = None
-        while self._attempts < max_attempts:
-            descriptions = self.task.init_episode(index)
-            try:
-                if (randomly_place and
-                        not self.task.is_static_workspace()):
-                    self._place_task()
-                    if self.robot.is_in_collision():
-                        logging.error("robot is in collision")
-                        raise BoundaryError()
-                if not place_demo and verify_instance:
-                    self.task.validate()
-                break
-            except (BoundaryError, WaypointError) as e:
-                if verify_instance:
-                    self.task.cleanup_()
-                    self.task.restore_state(self._initial_task_state)
-                    self._attempts += 1
-                    if self._attempts >= max_attempts:
-                        raise e
-                else:
-                    break
-
-        # Let objects come to rest
-        [self.pyrep.step() for _ in range(STEPS_BEFORE_EPISODE_START)]
-        self._has_init_episode = True
-        return descriptions
+        return self._create_new_scene_layout(
+            max_attempts=max_attempts,
+            verify_instance=verify_instance,
+            variation_index=index,
+            is_static=not (randomly_place and not self.task.is_static_workspace())
+        )
 
     def _get_task_object_poses(self):
         """Get poses of task objects relative to boundary_root."""
@@ -206,12 +183,15 @@ class Scene(object):
 
         return poses
 
-    def teleport(self, max_attempts: int = 20, verify_instance: bool = True):
-        # Replace the task without resetting the robot
+    def _create_new_scene_layout(self, max_attempts: int = 20, verify_instance: bool = True, variation_index: int = None, is_static: bool = False):
+        # Try a few times to init and place in the workspace
+        self._attempts = 0
+        descriptions = None
+
         while self._attempts < max_attempts:
-            self.task.init_episode(self._variation_index)
+            self.task.init_episode(variation_index)
             try:
-                if not self.task.is_static_workspace():
+                if not is_static:
                     self._place_task()
                     if self.robot.is_in_collision():
                         logging.error("robot is in collision")
@@ -232,6 +212,16 @@ class Scene(object):
         # Let objects come to rest
         [self.pyrep.step() for _ in range(STEPS_BEFORE_EPISODE_START)]
         self._has_init_episode = True
+        return descriptions
+
+    def teleport(self, max_attempts: int = 20, verify_instance: bool = True):
+        # Replace the task without resetting the robot
+        self._create_new_scene_layout(
+            max_attempts=max_attempts,
+            verify_instance=verify_instance,
+            variation_index=self._variation_index,
+            is_static=self.task.is_static_workspace()
+        )
 
     def _move_task_smoothly(
             self,
@@ -278,10 +268,15 @@ class Scene(object):
             for obj, pose in goal_object_poses
         }
 
+        grasped_objects = self.robot.gripper.get_grasped_objects()
+
         for obj, source_obj_pose in source_object_poses:
             handle = obj.get_handle()
 
             if handle not in goal_poses_by_handle:
+                continue
+
+            if obj in grasped_objects:
                 continue
 
             goal_obj_pose = goal_poses_by_handle[handle]

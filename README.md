@@ -83,6 +83,9 @@ These are the currently available scenarios.
 | `right_arm_disturbance_t100` | Arm disturbance | 100 | 0 scene transitions; 1 arm disturbance | 50-step ramp | 50-step ramp | 1 | Gradually offsets the right end-effector action beginning at step 100. |
 | `left_arm_disturbance_t100` | Arm disturbance | 100 | 0 scene transitions; 1 arm disturbance | 50-step ramp | 50-step ramp | 1 | Gradually offsets the left end-effector action beginning at step 100. |
 
+Both arm disturbances use the same offset Δ = (0.04, 0, 0.04).
+This represents a 4 cm offset along the \(x\)-axis and a 4 cm offset along the \(z\)-axis, with no intended rotation offset.
+
 ### Manual Example
 You can also manually apply scene dynamics from your own evaluation script by accessing the `task_env._scene` object. For example:
 

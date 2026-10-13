@@ -113,6 +113,10 @@ class Scene(object):
         self._move_task_smoothly_state = None
         self._source_layout = None
         self._target_layout = None
+        self._scenario_runner = None
+
+    def set_scenario_runner(self, runner):
+        self._scenario_runner = runner
 
     def load(self, task: Task) -> None:
         """Loads the task and positions at the centre of the workspace.
@@ -571,6 +575,8 @@ class Scene(object):
             self.task.restore_state(self._initial_task_state)
         self.task.set_initial_objects_in_scene()
 
+        self._scenario_runner = None
+
     def reset_unimanual(self) -> None:
         arm, gripper = self._initial_robot_state   
         self.pyrep.set_configuration_tree(arm)
@@ -754,6 +760,9 @@ class Scene(object):
         return obs
 
     def step(self):
+        if self._scenario_runner is not None:
+            self._scenario_runner.step()
+
         self.pyrep.step()
         self.task.step()
         if self._step_callback is not None:

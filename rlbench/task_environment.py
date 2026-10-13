@@ -14,6 +14,8 @@ from rlbench.backend.scene import Scene
 from rlbench.backend.task import Task
 from rlbench.demo import Demo
 from rlbench.observation_config import ObservationConfig
+from rlbench.dynabench.scenario import load_scenario
+from rlbench.dynabench.runner import ScenarioRunner
 
 _TORQUE_MAX_VEL = 9999
 _DT = 0.05
@@ -67,7 +69,12 @@ class TaskEnvironment(object):
             self._robot_shapes = self._robot.right_arm.get_objects_in_tree(object_type=ObjectType.SHAPE) + self._robot.left_arm.get_objects_in_tree(object_type=ObjectType.SHAPE)
         else:
             self._robot_shapes = self._robot.arm.get_objects_in_tree(object_type=ObjectType.SHAPE)
-        
+
+        self._scenario_name = None
+        self._scenario_runner = None
+
+    def set_scenario(self, scenario_name):
+        self._scenario_name = scenario_name
   
     def get_name(self) -> str:
         return self._task.get_name()
@@ -87,25 +94,37 @@ class TaskEnvironment(object):
     def variation_count(self) -> int:
         return self._task.variation_count()
 
-    def reset(self, demo = None, verify_instance: bool = True) -> (List[str], Observation):
+    def reset(self, demo=None, verify_instance=True):
+        self._scenario_runner = None
+        self._scene.set_scenario_runner(None)
+
         self._scene.reset()
+
         try:
-            place_demo = demo != None and hasattr(demo, 'num_reset_attempts') and demo.num_reset_attempts != None
             desc = self._scene.init_episode(
-                self._variation_number, max_attempts=_MAX_RESET_ATTEMPTS,
+                self._variation_number,
+                max_attempts=_MAX_RESET_ATTEMPTS,
                 randomly_place=not self._static_positions,
-                verify_instance=verify_instance)
+                verify_instance=verify_instance,
+            )
         except (BoundaryError, WaypointError) as e:
             if verify_instance:
                 raise TaskEnvironmentError(
                     'Could not place the task %s in the scene. This should not '
-                    'happen, please raise an issues on this task.'
-                    % self._task.get_name()) from e
-            else:
-                desc = None
+                    'happen, please raise an issue on this task.'
+                    % self._task.get_name()
+                ) from e
+            desc = None
+
+        if self._scenario_name is not None:
+            scenario = load_scenario(self._scenario_name)
+            self._scenario_runner = ScenarioRunner(
+                scene=self._scene,
+                scenario=scenario,
+            )
+            self._scene.set_scenario_runner(self._scenario_runner)
 
         self._reset_called = True
-        # Returns a list of descriptions and the first observation
         return desc, self._scene.get_observation()
 
     def get_task_descriptions(self) -> List[str]:

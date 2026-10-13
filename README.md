@@ -19,6 +19,22 @@ Most tasks require more than 50 steps to establish object contact.
 
 ### Usage Example
 
+#### Scenarios
+We predefine dynamic scenarios in `rlbench/dynabench/scenario.py`.
+You can load and use them like this:
+```python
+from rlbench.dynabench.scenario import load_scenario
+
+scenario = load_scenario("single_teleport_scenario_early")
+runner = ScenarioRunner(
+    scene=scene,
+    scenario=scenario,
+)
+```
+
+#### Manual Example
+You can also manually apply scene dynamics from your own evaluation script by accessing the `task_env._scene` object. For example:
+
 ```python
 from dataclasses import dataclass
 from loguru import logger

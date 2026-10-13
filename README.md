@@ -66,6 +66,23 @@ while True:
   obs = next_obs
 ```
 
+These are the currently available scenarios.
+
+| Scenario name | Dynamic type | Event steps | Number of transitions | Duration per transition (steps) | Total transition steps | Layouts required | Intended use |
+|---|---|---:|---:|---:|---:|---:|---|
+| `single_teleport_scenario_early` | Teleport | 5 | 1 | Instantaneous | 0 | 2 | Most tasks; early change with a long buffer before the first object interaction. |
+| `single_teleport_scenario_mid` | Teleport | 50 | 1 | Instantaneous | 0 | 2 | Most tasks; mid-episode change with little buffer before the first object interaction. |
+| `single_teleport_scenario_late` | Teleport | 100 | 1 | Instantaneous | 0 | 2 | Multi-object tasks such as PlaceCups; change shortly after the first object interaction. |
+| `single_smooth_move_scenario_early` | Smooth move | 5 | 1 | 10 | 10 | 2 | Most tasks; early, gradual scene change with a long buffer before the first object interaction. |
+| `single_smooth_move_scenario_mid` | Smooth move | 50 | 1 | 10 | 10 | 2 | Most tasks; mid-episode gradual change with little buffer before the first object interaction. |
+| `single_smooth_move_scenario_late` | Smooth move | 100 | 1 | 10 | 10 | 2 | Multi-object tasks such as PlaceCups; gradual change shortly after the first object interaction. |
+| `double_teleport_scenario_single_skill` | Teleport | 5, 50 | 2 | Instantaneous | 0 | 3 | Most tasks; two discrete scene changes within a relatively short episode. |
+| `double_teleport_scenario` | Teleport | 5, 100 | 2 | Instantaneous | 0 | 3 | Multi-object tasks such as PlaceCups; two discrete scene changes spaced farther apart. |
+| `double_smooth_move_scenario_single_skill` | Smooth move | 5, 50 | 2 | 10 | 20 | 3 | Most tasks; two gradual scene changes within a relatively short episode. |
+| `double_smooth_move_scenario` | Smooth move | 5, 100 | 2 | 10 | 20 | 3 | Multi-object tasks such as PlaceCups; two gradual scene changes spaced farther apart. |
+| `right_arm_disturbance_t100` | Arm disturbance | 100 | 0 scene transitions; 1 arm disturbance | 50-step ramp | 50-step ramp | 1 | Gradually offsets the right end-effector action beginning at step 100. |
+| `left_arm_disturbance_t100` | Arm disturbance | 100 | 0 scene transitions; 1 arm disturbance | 50-step ramp | 50-step ramp | 1 | Gradually offsets the left end-effector action beginning at step 100. |
+
 ### Manual Example
 You can also manually apply scene dynamics from your own evaluation script by accessing the `task_env._scene` object. For example:
 

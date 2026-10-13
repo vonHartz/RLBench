@@ -104,11 +104,10 @@ class TaskEnvironment(object):
         )
 
         num_layouts = (
-            len(scenario.events) + 1
+            1 + scenario.n_scene_events
             if scenario is not None
             else 2
         )
-
         self._scene.reset()
 
         try:
@@ -132,6 +131,7 @@ class TaskEnvironment(object):
             self._scenario_runner = ScenarioRunner(
                 scene=self._scene,
                 scenario=scenario,
+                action_mode=self._action_mode,
             )
 
         self._reset_called = True
@@ -144,23 +144,30 @@ class TaskEnvironment(object):
         return self._scene.get_observation()
 
     def step(self, action) -> (Observation, int, bool):
-        # returns observation, reward, done, info
         if not self._reset_called:
             raise RuntimeError(
-                "Call 'reset' before calling 'step' on a task.")
+                "Call reset() before calling step()."
+            )
 
         if self._scenario_runner is not None:
-            self._scenario_runner.step()
+            action = self._scenario_runner.step(
+                np.asarray(action, dtype=float).copy()
+            )
 
         self._action_mode.action(self._scene, action)
+
         success, terminate = self._task.success()
+
         reward = float(success)
+
         if self._shaped_rewards:
             reward = self._task.reward()
             if reward is None:
                 raise RuntimeError(
-                    'User requested shaped rewards, but task %s does not have '
-                    'a defined reward() function.' % self._task.get_name())
+                    "Shaped rewards were requested, but the task does not "
+                    "define reward()."
+                )
+
         return self._scene.get_observation(), reward, terminate
 
     def get_demos(self, amount: int, live_demos: bool = False,

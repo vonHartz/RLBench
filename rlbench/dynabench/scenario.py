@@ -5,14 +5,60 @@ from dataclasses import dataclass
 class DynamicEventType(enum.Enum):
     TELEPORT = "teleport"
     SMOOTH_MOVE = "smooth_move"
-
+    ARM_DISTURBANCE = "arm_disturbance"
 
 @dataclass(frozen=True)
 class DynamicEvent:
+    """Base class for scenario events."""
     step: int
+
+
+@dataclass(frozen=True)
+class SceneDynamicEvent(DynamicEvent):
+    """An event that changes the scene layout."""
     type: DynamicEventType
     duration: int = 10
 
+    def __post_init__(self):
+        if self.type not in (
+            DynamicEventType.TELEPORT,
+            DynamicEventType.SMOOTH_MOVE,
+        ):
+            raise ValueError(
+                f"Invalid scene event type: {self.type}"
+            )
+
+        if self.step < 0:
+            raise ValueError("Event step must be non-negative.")
+
+        if self.duration <= 0:
+            raise ValueError("Event duration must be positive.")
+
+
+@dataclass(frozen=True)
+class ArmDisturbanceEvent(DynamicEvent):
+    """An event that offsets an arm's end-effector action."""
+    duration: int = 50
+    arm_idx: int | None = None
+    offset: tuple[float, ...] = (
+        0.04, 0.0, 0.04, 0.0, 0.0, 0.0, 0.0
+    )
+
+    @property
+    def type(self) -> DynamicEventType:
+        return DynamicEventType.ARM_DISTURBANCE
+
+    def __post_init__(self):
+        if self.step < 0:
+            raise ValueError("Event step must be non-negative.")
+
+        if self.duration <= 0:
+            raise ValueError("Disturbance duration must be positive.")
+
+        if len(self.offset) != 7:
+            raise ValueError(
+                "Arm disturbance offset must contain 7 values."
+            )
 
 @dataclass(frozen=True)
 class DynamicScenario:
@@ -21,42 +67,42 @@ class DynamicScenario:
     events: tuple[DynamicEvent, ...]
 
     def __post_init__(self):
-        for event in self.events:
-            if event.step < 0:
-                raise ValueError(
-                    f"Event step must be nonnegative: {event}"
-                )
-
-            if event.type == DynamicEventType.SMOOTH_MOVE and event.duration <= 0:
-                raise ValueError(
-                    f"Smooth movement duration must be positive: {event}"
-                )
-
+        print(self.events)
         sorted_events = sorted(self.events, key=lambda e: e.step)
 
         for i in range(len(sorted_events) - 1):
             current = sorted_events[i]
-            next_event = sorted_events[i + 1]
+            following = sorted_events[i + 1]
 
-            duration = (
-                1
-                if current.type == DynamicEventType.TELEPORT
-                else current.duration
-            )
-
-            if current.step + duration > next_event.step:
-                raise ValueError(
-                    f"Dynamic events overlap: {current} and {next_event}"
+            # Only scene transitions occupy a transition interval.
+            if isinstance(current, SceneDynamicEvent):
+                duration = (
+                    1
+                    if current.type == DynamicEventType.TELEPORT
+                    else current.duration
                 )
 
+                if current.step + duration > following.step:
+                    raise ValueError(
+                        f"Dynamic events overlap: "
+                        f"{current} and {following}"
+                    )
 
-teleport_at_t5 = DynamicEvent(step=5, type=DynamicEventType.TELEPORT)
-teleport_at_t50 = DynamicEvent(step=50, type=DynamicEventType.TELEPORT)
-teleport_at_t100 = DynamicEvent(step=100, type=DynamicEventType.TELEPORT)
+    @property
+    def n_scene_events(self) -> int:
+        return sum(
+            isinstance(event, SceneDynamicEvent)
+            for event in self.events
+        )
 
-interpolate_at_t5 = DynamicEvent(step=5, type=DynamicEventType.SMOOTH_MOVE, duration=10)
-interpolate_at_t50 = DynamicEvent(step=50, type=DynamicEventType.SMOOTH_MOVE, duration=10)
-interpolate_at_t100 = DynamicEvent(step=100, type=DynamicEventType.SMOOTH_MOVE, duration=10)
+
+teleport_at_t5 = SceneDynamicEvent(step=5, type=DynamicEventType.TELEPORT)
+teleport_at_t50 = SceneDynamicEvent(step=50, type=DynamicEventType.TELEPORT)
+teleport_at_t100 = SceneDynamicEvent(step=100, type=DynamicEventType.TELEPORT)
+
+interpolate_at_t5 = SceneDynamicEvent(step=5, type=DynamicEventType.SMOOTH_MOVE, duration=10)
+interpolate_at_t50 = SceneDynamicEvent(step=50, type=DynamicEventType.SMOOTH_MOVE, duration=10)
+interpolate_at_t100 = SceneDynamicEvent(step=100, type=DynamicEventType.SMOOTH_MOVE, duration=10)
 
 single_teleport_scenario_t5 = DynamicScenario(
     name="single_teleport_scenario_early",
@@ -116,6 +162,34 @@ double_smooth_move_scenario_two_skill = DynamicScenario(
     events=(interpolate_at_t5, interpolate_at_t100),
 )
 
+disturb_right_arm = ArmDisturbanceEvent(
+    step=10,
+    duration=50,
+    arm_idx=0,
+    offset=(0.04, 0.0, 0.04, 0.0, 0.0, 0.0, 0.0),
+)
+
+disturb_left_arm = ArmDisturbanceEvent(
+    step=10,
+    duration=50,
+    arm_idx=1,
+    offset=(0.04, 0.0, 0.04, 0.0, 0.0, 0.0, 0.0),
+)
+
+right_arm_disturbance_scenario = DynamicScenario(
+    name="right_arm_disturbance_t100",
+    description="Gradually offset the right end-effector action from step 100.",
+    events=(disturb_right_arm,),
+)
+
+left_arm_disturbance_scenario = DynamicScenario(
+    name="left_arm_disturbance_t100",
+    description="Gradually offset the left end-effector action from step 100.",
+    events=(disturb_left_arm,),
+)
+
+
+
 
 SCENARIOS = {
     scenario.name: scenario
@@ -130,6 +204,8 @@ SCENARIOS = {
         double_teleport_scenario_two_skill,
         double_smooth_move_scenario_single_skill,
         double_smooth_move_scenario_two_skill,
+        right_arm_disturbance_scenario,
+        left_arm_disturbance_scenario,
     )
 }
 

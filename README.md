@@ -2,37 +2,61 @@
 
 DynaBench is built on [RLBench](https://github.com/stepjam/RLBench).
 It also includes the bimanual tasks from [RLBench2](https://github.com/markusgrotz/rlbench/), as well as bug fixes from [PerAct](https://github.com/MohitShridhar/RLBench/tree/peract).
+You can find bibtex entries for all papers at the bottom of this document.
 
-Please find the readme for RLBench below for details on installation etc.
+Please find the readme for RLBench below for details on installation, headless rendering, etc.
 
 ## Scene Dynamics
 DynaBench implements two types of scene dynamics: teleportation and linear interpolation.
 Teleportation samples a new (valid) task instance and teleports all scene objects into the new configuration.
 Linear interpolation also samples a new instance but then moves the object to their new poses over a predefined number of time steps.
+Multiple such dynamic transitions can be chained.
 
 By interpolating two arbitrary valid task instances, DynaBench randomizes both speed and movement direction of the task objects.
 Movement speed is controlled by the number of time steps (default=10), but interacts with the dispersion of the object poses across task instances.
 For example, for PlaceCups, the scene objects move with speeds between 0 m/s and 1.4 m/s. (By default, RLBench is controlled at 20 Hz.)
 
-Most tasks require more than 50 steps to establish object contact.
-# TODO: define movement point defaults per task in task object?
-
-### Usage Example
-
-#### Scenarios
+## Scenarios
 We predefine dynamic scenarios in `rlbench/dynabench/scenario.py`.
+If set on a `task_env`, a dynamics scenario is automatically executed in sync with calls to `task_env.step` using a ScenarioRunner from `rlbench/dynabench/runner.py`.
+
 You can load and use them like this:
 ```python
-from rlbench.dynabench.scenario import load_scenario
+from rlbench.environment import Environment
+from rlbench.action_modes.action_mode import MoveArmThenGripper
+from rlbench.action_modes.arm_action_modes import EndEffectorPoseViaIK
+from rlbench.action_modes.gripper_action_modes import Discrete
+from rlbench.tasks import OpenMicrowave
+from rlbench.task_environment import TaskEnvironment
 
-scenario = load_scenario("single_teleport_scenario_early")
-runner = ScenarioRunner(
-    scene=scene,
-    scenario=scenario,
+action_mode = MoveArmThenGripper(
+  arm_action_mode=EndEffectorPoseViaIK(
+    absolute_mode=False,
+    frame="world",
+    ),
+  gripper_action_mode=Discrete(),
 )
+env = Environment(action_mode)
+env.launch()
+task_env = env.get_task(OpenMicrowave)
+task_env.set_scenario("single_smooth_move_scenario_early")
+
+_, obs = task_env.reset()
+
+policy = ...
+
+step_no = 0
+while True:
+  action = policy.predict(obs)
+  next_obs, reward, done = task_env.step(action)
+
+  if done:
+    break
+
+  obs = next_obs
 ```
 
-#### Manual Example
+### Manual Example
 You can also manually apply scene dynamics from your own evaluation script by accessing the `task_env._scene` object. For example:
 
 ```python
@@ -103,6 +127,8 @@ while True:
 
 ## Bimanual Tasks
 For bimanual manipulation, import a bimanual task (e.g. `from rlbench.bimanual_tasks import BimanualHandoverItem`) and pass `robot_setup=dual_panda` upon environment initialization.
+
+Environment dynamics can be applied identical to the unimanual tasks.
 
 
 # RLBench: Robot Learning Benchmark [![Unit Tests](https://github.com/stepjam/RLBench/workflows/Unit%20Tests/badge.svg)](https://github.com/stepjam/RLBench/actions) [![Task Tests](https://github.com/stepjam/RLBench/workflows/Task%20Tests/badge.svg)](https://github.com/stepjam/RLBench/actions) [![Discord](https://img.shields.io/discord/694945190867370155.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/DXPCjmd)

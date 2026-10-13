@@ -96,7 +96,6 @@ class TaskEnvironment(object):
 
     def reset(self, demo=None, verify_instance=True):
         self._scenario_runner = None
-        self._scene.set_scenario_runner(None)
 
         scenario = (
             load_scenario(self._scenario_name)
@@ -134,7 +133,6 @@ class TaskEnvironment(object):
                 scene=self._scene,
                 scenario=scenario,
             )
-            self._scene.set_scenario_runner(self._scenario_runner)
 
         self._reset_called = True
         return desc, self._scene.get_observation()
@@ -150,6 +148,10 @@ class TaskEnvironment(object):
         if not self._reset_called:
             raise RuntimeError(
                 "Call 'reset' before calling 'step' on a task.")
+
+        if self._scenario_runner is not None:
+            self._scenario_runner.step()
+
         self._action_mode.action(self._scene, action)
         success, terminate = self._task.success()
         reward = float(success)

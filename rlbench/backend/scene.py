@@ -369,8 +369,6 @@ class Scene(object):
             goal_object_poses=None,
             current_step=0,
             total_steps=10,
-            max_attempts=5,
-            verify_instance=True
         ):
 
         if self._source_layout is None or self._target_layout is None:
@@ -404,17 +402,21 @@ class Scene(object):
 
         alpha = min(current_step / total_steps, 1.0)
 
-        # Identify currently grasped objects.
+        # Get currently grasped objects. Re-evaluate every step because the
+        # robot may grasp or release an object during the transition.
         grasped_objects = self.get_grasped_objects()
 
-        # Capture their current world poses immediately before moving the root.
-        # This is done on every step so the robot can still move objects it holds.
         held_world_poses = {
             obj.get_handle(): np.asarray(obj.get_pose()).copy()
             for obj in grasped_objects
         }
 
-        # Interpolate the task root in world coordinates.
+        # Protect grasped objects and their ancestors/descendants from
+        # independent pose updates.
+        protected_handles = set()
+        for obj in grasped_objects:
+            protected_handles.update(self._get_related_handles(obj))
+
         interp_pose = interpolate_pose(
             source_pose,
             goal_pose,
@@ -422,17 +424,9 @@ class Scene(object):
         )
         root.set_pose(interp_pose)
 
-        # Moving the root may have moved grasped objects indirectly.
-        # Restore their world poses before moving the other task objects.
-        for obj in grasped_objects:
-            obj.set_pose(held_world_poses[obj.get_handle()])
-
-        grasped_handles = set(held_world_poses)
-
-        # Interpolate ordinary task objects relative to the root.
         for handle, object_state in self._source_layout.objects.items():
 
-            if handle in grasped_handles:
+            if handle in protected_handles:
                 continue
 
             if handle not in goal_object_poses:
@@ -452,6 +446,11 @@ class Scene(object):
                 relative_to=root
             )
 
+        for obj in grasped_objects:
+            obj.set_pose(held_world_poses[obj.get_handle()])
+
+        current_step += 1
+
         return (
             source_pose,
             goal_pose,
@@ -460,11 +459,7 @@ class Scene(object):
             current_step
         )
     
-    def move_task_smoothly(
-            self,
-            total_steps=10,
-            max_attempts=20,
-            verify_instance=True):
+    def move_task_smoothly(self, total_steps=10):
 
         if self._move_task_smoothly_state is None:
             self._move_task_smoothly_state = {
@@ -490,8 +485,6 @@ class Scene(object):
             goal_object_poses=state['goal_object_poses'],
             current_step=state['current_step'],
             total_steps=total_steps,
-            max_attempts=max_attempts,
-            verify_instance=verify_instance
         )
 
         state['source_pose'] = source_pose

@@ -98,6 +98,18 @@ class TaskEnvironment(object):
         self._scenario_runner = None
         self._scene.set_scenario_runner(None)
 
+        scenario = (
+            load_scenario(self._scenario_name)
+            if self._scenario_name is not None
+            else None
+        )
+
+        num_layouts = (
+            len(scenario.events) + 1
+            if scenario is not None
+            else 2
+        )
+
         self._scene.reset()
 
         try:
@@ -106,6 +118,7 @@ class TaskEnvironment(object):
                 max_attempts=_MAX_RESET_ATTEMPTS,
                 randomly_place=not self._static_positions,
                 verify_instance=verify_instance,
+                num_layouts=num_layouts,
             )
         except (BoundaryError, WaypointError) as e:
             if verify_instance:
@@ -116,8 +129,7 @@ class TaskEnvironment(object):
                 ) from e
             desc = None
 
-        if self._scenario_name is not None:
-            scenario = load_scenario(self._scenario_name)
+        if scenario is not None:
             self._scenario_runner = ScenarioRunner(
                 scene=self._scene,
                 scenario=scenario,

@@ -111,8 +111,7 @@ class Scene(object):
 
         # DynaBench dynamic scenario state
         self._move_task_smoothly_state = None
-        self._source_layout = None
-        self._target_layout = None
+        self._layouts = []
         self._scenario_runner = None
 
     def set_scenario_runner(self, runner):
@@ -163,13 +162,16 @@ class Scene(object):
             randomly_place: bool = True,
             max_attempts: int = 5,
             place_demo: bool = False,
-            verify_instance: bool = True) -> List[str]:
+            verify_instance: bool = True,
+            num_layouts: int = 2,
+    ) -> List[str]:
+
+        if num_layouts < 1:
+            raise ValueError("num_layouts must be at least 1")
 
         self._variation_index = index
         self._move_task_smoothly_state = None
-
-        self._source_layout = None
-        self._target_layout = None
+        self._layouts = []
 
         if not self._has_init_task:
             self.init_task()
@@ -178,38 +180,43 @@ class Scene(object):
             randomly_place and not self.task.is_static_workspace()
         )
 
+        # Generate and cache the initial layout.
         descriptions = self._create_new_scene_layout(
             max_attempts=max_attempts,
             verify_instance=verify_instance,
             variation_index=index,
-            is_static=is_static
+            is_static=is_static,
         )
 
-        self._source_layout = self._capture_layout()
+        initial_layout = self._capture_layout()
+        self._layouts.append(initial_layout)
 
         try:
-            self.task.cleanup_()
-            self.task.restore_state(self._initial_task_state)
+            # Generate every additional layout from the task baseline.
+            for _ in range(1, num_layouts):
+                self.task.cleanup_()
+                self.task.restore_state(self._initial_task_state)
 
-            self._create_new_scene_layout(
-                max_attempts=max_attempts,
-                verify_instance=verify_instance,
-                variation_index=index,
-                is_static=is_static
-            )
+                self._create_new_scene_layout(
+                    max_attempts=max_attempts,
+                    verify_instance=verify_instance,
+                    variation_index=index,
+                    is_static=is_static,
+                )
 
-            self._target_layout = self._capture_layout()
+                self._layouts.append(self._capture_layout())
 
         except Exception:
-            self._apply_layout(self._source_layout, skip_grasped=False)
-
-            self._target_layout = None
+            self._apply_layout(initial_layout, skip_grasped=False)
+            self._layouts = []
+            self._move_task_smoothly_state = None
             raise
 
-        self._apply_layout(self._source_layout, skip_grasped=False)
+        # Begin the episode at the initial layout.
+        self._apply_layout(initial_layout, skip_grasped=False)
+        self._move_task_smoothly_state = None
 
         self._has_init_episode = True
-
         return descriptions
 
     def _get_task_object_poses(self):
@@ -352,15 +359,21 @@ class Scene(object):
         self._has_init_episode = True
         return descriptions
 
-    def teleport(self):
-
-        if self._target_layout is None:
-            raise RuntimeError(
-                "No destination layout is cached. "
-                "Call init_episode() before teleporting."
+    def teleport(self, layout_index: int) -> None:
+        """Immediately apply a cached layout."""
+        if not 0 <= layout_index < len(self._layouts):
+            raise IndexError(
+                f"Layout index {layout_index} is out of range "
+                f"for {len(self._layouts)} cached layouts."
             )
 
-        self._apply_layout(self._target_layout, skip_grasped=True)
+        # A teleport cancels any in-progress interpolation.
+        self._move_task_smoothly_state = None
+
+        self._apply_layout(
+            self._layouts[layout_index],
+            skip_grasped=True,
+        )
 
         # Allow the simulator to settle after the teleport.
         for _ in range(STEPS_BEFORE_EPISODE_START):
@@ -368,19 +381,31 @@ class Scene(object):
 
     def _move_task_smoothly(
             self,
+            source_layout_index: int,
+            target_layout_index: int,
             source_pose=None,
             goal_pose=None,
             source_object_poses=None,
             goal_object_poses=None,
             current_step=0,
             total_steps=10,
-        ):
+    ):
+        """Perform one step of smooth movement between two cached layouts.
 
-        if self._source_layout is None or self._target_layout is None:
-            raise RuntimeError(
-                "Source and destination layouts must be initialized "
-                "by init_episode() before smooth movement."
-            )
+        Args:
+            source_layout_index: Index of the starting layout in self._layouts.
+            target_layout_index: Index of the destination layout in self._layouts.
+            source_pose: Cached source pose of the task root.
+            goal_pose: Cached target pose of the task root.
+            source_object_poses: Cached source-relative poses of task objects.
+            goal_object_poses: Cached target-relative poses of task objects.
+            current_step: Number of interpolation steps already completed.
+            total_steps: Total number of interpolation steps.
+
+        Returns:
+            A tuple containing the cached poses and the updated step count.
+            The caller determines whether the transition has completed.
+        """
 
         if total_steps <= 0:
             raise ValueError(
@@ -388,27 +413,45 @@ class Scene(object):
                 "Use teleport() for instantaneous movement."
             )
 
+        if not 0 <= source_layout_index < len(self._layouts):
+            raise IndexError(
+                f"Source layout index {source_layout_index} is out of range."
+            )
+
+        if not 0 <= target_layout_index < len(self._layouts):
+            raise IndexError(
+                f"Target layout index {target_layout_index} is out of range."
+            )
+
+        if target_layout_index != source_layout_index + 1:
+            raise ValueError(
+                "A smooth transition must use consecutive layout indices: "
+                f"{source_layout_index} -> {target_layout_index}."
+            )
+
+        source_layout = self._layouts[source_layout_index]
+        target_layout = self._layouts[target_layout_index]
+
         root = self.task.boundary_root()
 
         if source_pose is None:
-            source_pose = self._source_layout.root_pose.copy()
+            source_pose = source_layout.root_pose.copy()
+            goal_pose = target_layout.root_pose.copy()
 
             source_object_poses = {
                 handle: state.relative_pose.copy()
-                for handle, state in self._source_layout.objects.items()
+                for handle, state in source_layout.objects.items()
             }
-
-            goal_pose = self._target_layout.root_pose.copy()
 
             goal_object_poses = {
                 handle: state.relative_pose.copy()
-                for handle, state in self._target_layout.objects.items()
+                for handle, state in target_layout.objects.items()
             }
 
-        alpha = min(current_step / total_steps, 1.0)
+        alpha = min((current_step + 1) / total_steps, 1.0)
 
-        # Get currently grasped objects. Re-evaluate every step because the
-        # robot may grasp or release an object during the transition.
+        # Re-evaluate grasped objects every step because the robot may
+        # grasp or release an object while the transition is running.
         grasped_objects = self.get_grasped_objects()
 
         held_world_poses = {
@@ -422,15 +465,17 @@ class Scene(object):
         for obj in grasped_objects:
             protected_handles.update(self._get_related_handles(obj))
 
+        # Interpolate the task root.
         interp_pose = interpolate_pose(
             source_pose,
             goal_pose,
-            alpha
+            alpha,
         )
         root.set_pose(interp_pose)
 
         moved_objects = []
-        for handle, object_state in self._source_layout.objects.items():
+
+        for handle, object_state in source_layout.objects.items():
 
             if handle in protected_handles:
                 continue
@@ -444,12 +489,12 @@ class Scene(object):
             interp_obj_pose = interpolate_pose(
                 source_obj_pose,
                 goal_obj_pose,
-                alpha
+                alpha,
             )
 
             object_state.obj.set_pose(
                 interp_obj_pose,
-                relative_to=root
+                relative_to=root,
             )
 
             moved_objects.append(object_state.obj)
@@ -459,6 +504,8 @@ class Scene(object):
         for obj_a, obj_b in collisions:
             self._resolve_object_collision(obj_a, obj_b)
 
+        # Restore grasped objects to their world poses so moving the task
+        # root does not independently move the objects held by the robot.
         for obj in grasped_objects:
             obj.set_pose(held_world_poses[obj.get_handle()])
 
@@ -469,7 +516,7 @@ class Scene(object):
             goal_pose,
             source_object_poses,
             goal_object_poses,
-            current_step
+            current_step,
         )
 
     def _resolve_object_collision(self, obj_a, obj_b, separation=0.001):
@@ -515,48 +562,110 @@ class Scene(object):
 
         return collisions
 
-    def move_task_smoothly(self, total_steps=10):
+    def move_task_smoothly(
+            self,
+            source_layout_index: int = 0,
+            target_layout_index: int = 1,
+            total_steps: int = 10,
+    ) -> bool:
+        """Advance a smooth transition between two cached layouts.
 
+        Args:
+            source_layout_index: Index of the starting layout.
+            target_layout_index: Index of the destination layout.
+            total_steps: Number of interpolation steps for the transition.
+
+        Returns:
+            True if the transition has completed; otherwise, False.
+        """
+
+        if total_steps <= 0:
+            raise ValueError(
+                "total_steps must be greater than 0. "
+                "Use teleport() for instantaneous movement."
+            )
+
+        if not 0 <= source_layout_index < len(self._layouts):
+            raise IndexError(
+                f"Source layout index {source_layout_index} is out of range."
+            )
+
+        if not 0 <= target_layout_index < len(self._layouts):
+            raise IndexError(
+                f"Target layout index {target_layout_index} is out of range."
+            )
+
+        if target_layout_index != source_layout_index + 1:
+            raise ValueError(
+                "A smooth transition must use consecutive layout indices: "
+                f"{source_layout_index} -> {target_layout_index}."
+            )
+
+        # Initialize state when a new transition begins.
         if self._move_task_smoothly_state is None:
             self._move_task_smoothly_state = {
-                'source_pose': None,
-                'goal_pose': None,
-                'source_object_poses': None,
-                'goal_object_poses': None,
-                'current_step': 0,
+                "source_layout_index": source_layout_index,
+                "target_layout_index": target_layout_index,
+                "total_steps": total_steps,
+                "source_pose": None,
+                "goal_pose": None,
+                "source_object_poses": None,
+                "goal_object_poses": None,
+                "current_step": 0,
             }
 
         state = self._move_task_smoothly_state
+
+        if (
+            state["source_layout_index"] != source_layout_index
+            or state["target_layout_index"] != target_layout_index
+            or state["total_steps"] != total_steps
+        ):
+            raise RuntimeError(
+                "A different smooth transition was requested while another "
+                "transition was active. Call reset_layout_transition() "
+                "before starting a new transition."
+            )
 
         (
             source_pose,
             goal_pose,
             source_object_poses,
             goal_object_poses,
-            current_step
+            current_step,
         ) = self._move_task_smoothly(
-            source_pose=state['source_pose'],
-            goal_pose=state['goal_pose'],
-            source_object_poses=state['source_object_poses'],
-            goal_object_poses=state['goal_object_poses'],
-            current_step=state['current_step'],
+            source_layout_index=source_layout_index,
+            target_layout_index=target_layout_index,
+            source_pose=state["source_pose"],
+            goal_pose=state["goal_pose"],
+            source_object_poses=state["source_object_poses"],
+            goal_object_poses=state["goal_object_poses"],
+            current_step=state["current_step"],
             total_steps=total_steps,
         )
 
-        state['source_pose'] = source_pose
-        state['goal_pose'] = goal_pose
-        state['source_object_poses'] = source_object_poses
-        state['goal_object_poses'] = goal_object_poses
-        state['current_step'] = current_step
+        # Save the updated interpolation state.
+        state["source_pose"] = source_pose
+        state["goal_pose"] = goal_pose
+        state["source_object_poses"] = source_object_poses
+        state["goal_object_poses"] = goal_object_poses
+        state["current_step"] = current_step
 
-        # Return whether the transition is complete.
-        return current_step > total_steps
+        if current_step >= total_steps:
+            self._move_task_smoothly_state = None
+            return True
+
+        return False
 
     def get_grasped_objects(self) -> List[Shape]:
         if self.robot.is_bimanual:
             return self.robot.right_gripper.get_grasped_objects() + self.robot.left_gripper.get_grasped_objects()
         else:
             return self.robot.gripper.get_grasped_objects()
+
+    def reset_layout_transition(self) -> None:
+        """Clear state associated with an in-progress smooth transition."""
+        self._move_task_smoothly_state = None
 
     def reset(self) -> None:
         """Resets the joint angles. """
@@ -765,6 +874,7 @@ class Scene(object):
 
         self.pyrep.step()
         self.task.step()
+
         if self._step_callback is not None:
             self._step_callback()
 

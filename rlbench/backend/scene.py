@@ -250,31 +250,71 @@ class Scene(object):
         )
 
 
+    def _get_ancestor_handles(self, obj):
+        """Return the handles of obj's ancestors."""
+        ancestors = set()
+        parent = obj.get_parent()
+
+        while parent is not None:
+            ancestors.add(parent.get_handle())
+            parent = parent.get_parent()
+
+        return ancestors
+
+
+    def _get_descendant_handles(self, obj):
+        """Return the handles of obj's descendants."""
+        return {
+            child.get_handle()
+            for child in obj.get_objects_in_tree()
+            if child.get_handle() != obj.get_handle()
+        }
+
+
+    def _get_related_handles(self, obj):
+        """Return the object's handle and all ancestor/descendant handles."""
+        return (
+            {obj.get_handle()}
+            | self._get_ancestor_handles(obj)
+            | self._get_descendant_handles(obj)
+        )
+
     def _apply_layout(
-        self,
-        configuration: DynamicConfiguration,
-        skip_grasped: bool = True
-        ) -> None:
+            self,
+            configuration: DynamicConfiguration,
+            skip_grasped: bool = True) -> None:
+        """Apply a cached configuration while preserving grasped objects."""
 
         root = self.task.boundary_root()
 
-        grasped_handles = set()
-        if skip_grasped:
-            grasped_handles = {
-                obj.get_handle()
-                for obj in self.get_grasped_objects()
-            }
+        grasped_objects = (
+            self.get_grasped_objects() if skip_grasped else []
+        )
+
+        held_world_poses = {
+            obj.get_handle(): np.asarray(obj.get_pose()).copy()
+            for obj in grasped_objects
+        }
+
+        protected_handles = set()
+        for obj in grasped_objects:
+            protected_handles.update(self._get_related_handles(obj))
 
         root.set_pose(configuration.root_pose)
 
         for handle, object_state in configuration.objects.items():
-            if handle in grasped_handles:
+            # skip grasped objects and their ancestors/descendants
+            if handle in protected_handles:
                 continue
 
             object_state.obj.set_pose(
                 object_state.relative_pose,
                 relative_to=root
             )
+
+        # Restore held objects last, to correct for root movement.
+        for obj in grasped_objects:
+            obj.set_pose(held_world_poses[obj.get_handle()])
 
     def _create_new_scene_layout(self, max_attempts: int = 20, verify_instance: bool = True, variation_index: int = None, is_static: bool = False):
         # Try a few times to init and place in the workspace
@@ -348,32 +388,49 @@ class Scene(object):
         root = self.task.boundary_root()
 
         if source_pose is None:
-            source_pose = np.asarray(root.get_pose()).copy()
+            source_pose = self._source_layout.root_pose.copy()
 
             source_object_poses = {
-                handle: pose.copy()
-                for handle, (_, pose)
-                in self._source_layout['object_poses'].items()
+                handle: state.relative_pose.copy()
+                for handle, state in self._source_layout.objects.items()
             }
 
-            goal_pose = self._target_layout['root_pose'].copy()
+            goal_pose = self._target_layout.root_pose.copy()
 
             goal_object_poses = {
-                handle: pose.copy()
-                for handle, (_, pose)
-                in self._target_layout['object_poses'].items()
+                handle: state.relative_pose.copy()
+                for handle, state in self._target_layout.objects.items()
             }
 
         alpha = min(current_step / total_steps, 1.0)
 
-        interp_pose = interpolate_pose(source_pose, goal_pose, alpha)
-        root.set_pose(interp_pose)
+        # Identify currently grasped objects.
+        grasped_objects = self.get_grasped_objects()
 
-        grasped_handles = {
-            obj.get_handle() for obj in self.get_grasped_objects()
+        # Capture their current world poses immediately before moving the root.
+        # This is done on every step so the robot can still move objects it holds.
+        held_world_poses = {
+            obj.get_handle(): np.asarray(obj.get_pose()).copy()
+            for obj in grasped_objects
         }
 
-        for handle, (obj, _) in self._source_layout['object_poses'].items():
+        # Interpolate the task root in world coordinates.
+        interp_pose = interpolate_pose(
+            source_pose,
+            goal_pose,
+            alpha
+        )
+        root.set_pose(interp_pose)
+
+        # Moving the root may have moved grasped objects indirectly.
+        # Restore their world poses before moving the other task objects.
+        for obj in grasped_objects:
+            obj.set_pose(held_world_poses[obj.get_handle()])
+
+        grasped_handles = set(held_world_poses)
+
+        # Interpolate ordinary task objects relative to the root.
+        for handle, object_state in self._source_layout.objects.items():
 
             if handle in grasped_handles:
                 continue
@@ -390,9 +447,10 @@ class Scene(object):
                 alpha
             )
 
-            obj.set_pose(interp_obj_pose, relative_to=root)
-
-        current_step += 1
+            object_state.obj.set_pose(
+                interp_obj_pose,
+                relative_to=root
+            )
 
         return (
             source_pose,

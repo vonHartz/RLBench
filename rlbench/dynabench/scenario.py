@@ -41,7 +41,7 @@ class ArmDisturbanceEvent(DynamicEvent):
     duration: int = 50
     arm_idx: int | None = None
     offset: tuple[float, ...] = (
-        0.04, 0.0, 0.04, 0.0, 0.0, 0.0, 0.0
+        0.04, 0.0, 0.04, 0.0, 0.0, 0.0, 0.0,
     )
 
     @property
@@ -67,7 +67,6 @@ class DynamicScenario:
     events: tuple[DynamicEvent, ...]
 
     def __post_init__(self):
-        print(self.events)
         sorted_events = sorted(self.events, key=lambda e: e.step)
 
         for i in range(len(sorted_events) - 1):
@@ -163,14 +162,14 @@ double_smooth_move_scenario_two_skill = DynamicScenario(
 )
 
 disturb_right_arm = ArmDisturbanceEvent(
-    step=10,
+    step=100,
     duration=50,
     arm_idx=0,
     offset=(0.04, 0.0, 0.04, 0.0, 0.0, 0.0, 0.0),
 )
 
 disturb_left_arm = ArmDisturbanceEvent(
-    step=10,
+    step=100,
     duration=50,
     arm_idx=1,
     offset=(0.04, 0.0, 0.04, 0.0, 0.0, 0.0, 0.0),

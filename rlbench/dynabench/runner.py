@@ -202,36 +202,11 @@ class ScenarioRunner:
 
         offset = np.asarray(event.offset, dtype=float)
 
-        # Single-arm action layout:
-        # [x, y, z, qx, qy, qz, qw, gripper]
-        #
-        # Bimanual action layout:
-        # [arm0 pose (7), arm0 gripper, arm1 pose (7), arm1 gripper]
         if self.scene.robot.is_bimanual:
-            expected_size = 16
+            action_right, action_left = np.split(action, 2)
 
-            if action.size != expected_size:
-                raise ValueError(
-                    "Expected a 16-element bimanual action containing two "
-                    "8-element arm blocks, but received "
-                    f"{action.size} elements."
-                )
+            action = action_right if event.arm_idx == 0 else action_left
 
-            start = event.arm_idx * 8
-        else:
-            expected_size = 8
-
-            if action.size != expected_size:
-                raise ValueError(
-                    "Expected an 8-element single-arm action "
-                    "(7D pose + gripper), but received "
-                    f"{action.size} elements."
-                )
-
-            start = 0
-
-        # Preserve the original disturbance schedule:
-        # ramp linearly from zero to the full offset, then hold it.
         elapsed = self.current_step - event.step
 
         if elapsed < 0:
@@ -239,4 +214,4 @@ class ScenarioRunner:
 
         alpha = min(elapsed / event.duration, 1.0)
 
-        action[start:start + 7] += alpha * offset
+        action[:7] += alpha * offset
